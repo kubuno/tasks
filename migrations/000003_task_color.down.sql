@@ -1,0 +1,1 @@
+ALTER TABLE tasks.tasks DROP COLUMN IF EXISTS color;

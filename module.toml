@@ -1,0 +1,49 @@
+[module]
+id           = "tasks"
+display_name = "Tasks"
+version      = "0.1.0"
+description  = "Tâches, sous-tâches, tableaux Kanban, CalDAV VTODO, intégration agenda"
+author       = "Kubuno Contributors"
+license      = "AGPL-3.0"
+runtime      = "rust"
+settings_path = "/tasks/settings"
+
+[process]
+entrypoint = "kubuno-tasks"
+args       = []
+
+[server]
+host = "127.0.0.1"
+port = 3116
+
+[routes]
+patterns = [
+    { method = "*", path = "/*" },
+]
+
+[[sidebar_items]]
+id       = "tasks"
+label    = "Tasks"
+icon     = "CheckSquare"
+path     = "/tasks"
+position = 22
+section  = "main"
+
+[[sidebar_items]]
+id       = "tasks-boards"
+label    = "Tableaux"
+icon     = "Columns3"
+path     = "/tasks/boards"
+position = 23
+section  = "main"
+
+[events]
+subscribed = [
+    "UserDeleted",
+]
+publishes = [
+    "TaskCreated",
+    "TaskUpdated",
+    "TaskDeleted",
+    "TaskCompleted",
+]
