@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Trash2, Plus, Tag, CheckCircle2, Circle, CheckSquare, Check, X } from 'lucide-react'
-import { Dropdown, DatePicker, Spinner, Button, Tabs, Input, Textarea } from '@ui'
+import { Dropdown, DatePicker, Spinner, Button, Tabs, Input, Textarea, RangeSlider } from '@ui'
 import { FloatingWindow } from '@ui'
 import { ConfirmDialog } from '@ui'
 import { useConfirm } from '@kubuno/sdk'
@@ -231,11 +231,12 @@ export default function TaskDetailPanel() {
               </div>
               <div>
                 <label className="block text-xs text-text-tertiary mb-1">{t('percent_complete')}</label>
-                <input
-                  type="range" min={0} max={100} step={5}
+                <RangeSlider
+                  min={0} max={100} step={5}
                   value={task.percent_complete}
-                  onChange={(e) => updateMut.mutate({ percent_complete: Number(e.target.value) })}
+                  onChange={(v) => updateMut.mutate({ percent_complete: v })}
                   className="w-full"
+                  aria-label={t('percent_complete')}
                 />
                 <span className="text-xs text-text-tertiary">{task.percent_complete}%</span>
               </div>

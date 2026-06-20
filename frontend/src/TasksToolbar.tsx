@@ -53,7 +53,7 @@ export default function TasksToolbar() {
         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: board?.color ?? '#1a73e8' }} />
         <span className="text-sm font-semibold text-text-primary truncate">{board?.title ?? ''}</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 no-print">
         <div className="flex items-center gap-1 bg-surface-2 rounded-lg p-0.5">
           <ViewBtn v="kanban" icon={<LayoutGrid size={15} />} />
           <ViewBtn v="list" icon={<List size={15} />} />
