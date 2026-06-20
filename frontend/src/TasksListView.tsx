@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ChevronDown, Plus, CheckCircle2, Circle } from 'lucide-react'
 import { Spinner, MenuDropdown, type MenuItem, Input, Button } from '@ui'
+import { useSwipeActions } from './useSwipe'
 import { ConfirmDialog } from '@ui'
 import { useConfirm } from '@kubuno/sdk'
 import { prompt } from '@kubuno/sdk'
@@ -16,11 +17,12 @@ interface Props {
   boardId?: string
 }
 
-function TaskRow({ task, depth, onOpen, onToggle, expandable, expanded, onExpand, onContextMenu, accent }: {
+function TaskRow({ task, depth, onOpen, onToggle, onDelete, expandable, expanded, onExpand, onContextMenu, accent }: {
   task: Task
   depth: number
   onOpen: (id: string) => void
   onToggle: (t: Task) => void
+  onDelete?: (t: Task) => void
   expandable: boolean
   expanded: boolean
   onExpand: () => void
@@ -32,12 +34,18 @@ function TaskRow({ task, depth, onOpen, onToggle, expandable, expanded, onExpand
   const overdue = isOverdue(task.due_at, task.status)
   const level = priorityLevel(task.priority)
   const barColor = task.color ?? accent
+  // Swipe (tactile) : droite = (dé)cocher fait, gauche = supprimer.
+  const swipe = useSwipeActions({ onRight: () => onToggle(task), onLeft: onDelete ? () => onDelete(task) : undefined })
   return (
     <div
       onClick={() => onOpen(task.id)}
       onContextMenu={(e) => onContextMenu?.(e, task)}
-      className="flex items-center gap-2 px-3 py-2 hover:bg-surface-1 cursor-pointer border-b border-border/60"
-      style={{ paddingLeft: 12 + depth * 22, borderLeft: barColor ? `3px solid ${barColor}` : undefined }}
+      {...swipe.handlers}
+      className={`relative flex items-center gap-2 px-3 py-2 cursor-pointer border-b border-border/60
+        ${swipe.dx > 0 ? 'bg-success/20' : swipe.dx < 0 ? 'bg-danger/20' : 'hover:bg-surface-1'}`}
+      style={{ paddingLeft: 12 + depth * 22, borderLeft: barColor ? `3px solid ${barColor}` : undefined,
+               transform: swipe.dx !== 0 ? `translateX(${swipe.dx}px)` : undefined,
+               transition: swipe.swiping ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y' }}
     >
       {expandable ? (
         <button onClick={(e) => { e.stopPropagation(); onExpand() }} className="text-text-tertiary hover:text-text-primary">
@@ -199,6 +207,7 @@ export default function TasksListView({ boardId }: Props) {
                   depth={0}
                   onOpen={selectTask}
                   onToggle={(tk) => toggleMut.mutate(tk)}
+                  onDelete={taskActions.onDelete}
                   expandable={!!task.subtask_count}
                   expanded={expanded.has(task.id)}
                   onExpand={() => toggleExpand(task.id)}
