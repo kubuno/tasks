@@ -4,7 +4,9 @@ import { format, parseISO } from 'date-fns'
 import {
   ExtensionRegistry,
   CALENDAR_OVERLAY, type CalendarOverlayItem, type CalendarOverlayProvider,
-  RouteRegistry, SlotRegistry, WidgetRegistry, WaffleAppRegistry,
+  RouteRegistry, WidgetRegistry, WaffleAppRegistry,
+  ModuleSettingsRegistry,
+  NotificationRegistry,
   useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore,
   SDK_VERSION,
 } from '@kubuno/sdk'
@@ -18,7 +20,6 @@ import TasksSidebarBody from './TasksSidebarBody'
 import TasksToolbar from './TasksToolbar'
 import TasksMiniPanel from './TasksMiniPanel'
 import TasksFilterPanel from './TasksFilterPanel'
-import TasksCalDavSettings from './TasksCalDavSettings'
 import TasksDueWidget from './TasksDueWidget'
 
 export const sdkVersion = SDK_VERSION
@@ -28,7 +29,22 @@ export function register() {
     { id: 'tasks', label: 'Tasks', Icon: CheckSquare, path: '/tasks' },
   ])
 
-  SlotRegistry.register('settings-sections', 'tasks', TasksCalDavSettings)
+  // The header gear button opens the per-user Tasks settings while in /tasks
+  // (the CalDAV section lives there as a tab — no longer in the core settings page).
+  ModuleSettingsRegistry.register('tasks')
+
+  // Declare the notification activities shown in the core Settings → Notifications matrix.
+  NotificationRegistry.register({
+    moduleId: 'tasks',
+    title: 'Tâches',
+    order: 10,
+    activities: [
+      { id: 'task_assigned', label: 'Une tâche vous est assignée', emailDefault: true, pushDefault: true },
+      { id: 'task_due', label: 'Une tâche arrive à échéance', pushDefault: true },
+      { id: 'board_changed', label: 'Un tableau, une liste ou une carte est modifié' },
+      { id: 'card_comment', label: 'Un commentaire est ajouté sur une carte', pushDefault: true },
+    ],
+  })
 
   WidgetRegistry.register({ id: 'tasks-due', moduleId: 'tasks', Component: TasksDueWidget, size: 'medium', order: 12 })
 
