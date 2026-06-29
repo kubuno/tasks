@@ -1,7 +1,7 @@
 [module]
 id           = "tasks"
 display_name = "Tasks"
-version      = "0.1.0"
+version      = "0.1.2"
 description  = "Tâches, sous-tâches, tableaux Kanban, CalDAV VTODO, intégration agenda"
 author       = "Kubuno Contributors"
 license      = "AGPL-3.0"
