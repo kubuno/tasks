@@ -6,7 +6,9 @@ import {
   CALENDAR_OVERLAY, type CalendarOverlayItem, type CalendarOverlayProvider,
   RouteRegistry, WidgetRegistry, WaffleAppRegistry,
   ModuleSettingsRegistry,
+  ModuleServiceRegistry,
   NotificationRegistry,
+  SlotRegistry,
   useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore,
   SDK_VERSION,
 } from '@kubuno/sdk'
@@ -21,10 +23,32 @@ import TasksToolbar from './TasksToolbar'
 import TasksMiniPanel from './TasksMiniPanel'
 import TasksFilterPanel from './TasksFilterPanel'
 import TasksDueWidget from './TasksDueWidget'
+import TasksDataCard from './TasksDataCard'
+import TaskCreateDialog from './TaskCreateDialog'
+import { createTask } from './taskCreateStore'
+import { registerDataCardRenderer } from './kubunoData'
 
 export const sdkVersion = SDK_VERSION
 
 export function register() {
+  // Task creator, mounted globally by the host shell: any module can open it
+  // without navigating to /tasks.
+  SlotRegistry.register('app-dialogs', 'tasks', TaskCreateDialog)
+
+  // Services tasks offers to OTHER modules (chat…). Published only while tasks
+  // is installed+active → consumers degrade gracefully when absent.
+  //   createTask(opts?: { title?: string }): Promise<{ id, title } | null>
+  ModuleServiceRegistry.publish('tasks', {
+    createTask,
+  })
+
+  // `tasks.task` JSON envelopes ("Copier pour Kubuno" in the task menu):
+  // consumer modules (chat, notes…) resolve this card through `core.data-card`.
+  registerDataCardRenderer('tasks', {
+    types: ['tasks.task'],
+    Component: TasksDataCard,
+  })
+
   WaffleAppRegistry.register('tasks', 'Tasks', [
     { id: 'tasks', label: 'Tasks', Icon: CheckSquare, path: '/tasks' },
   ])

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -12,8 +12,13 @@ import { useConfirm } from '@kubuno/sdk'
 import { SidebarNavItem } from '@kubuno/sdk'
 import { tasksApi, type Board, type Collection } from './api'
 import { useTasksStore } from './store'
+import { hashTo, fromHash } from './hashRoute'
 import BoardEditWindow from './BoardEditWindow'
 
+// Every clickable element of this sidebar is an <a> carrying a real href.
+// Collections have no route of their own, so they are addressable through the
+// URL hash (`/tasks/#collection/<key>`, cf. hashRoute.ts) and the selection is
+// read back from `useLocation().hash` — direct links and Back therefore work.
 const COLLECTIONS: { key: Collection; icon: React.ReactNode }[] = [
   { key: 'today',     icon: <CalendarDays size={18} /> },
   { key: 'upcoming',  icon: <CalendarClock size={18} /> },
@@ -28,6 +33,7 @@ export default function TasksSidebarBody({ collapsed = false }: { collapsed?: bo
   const navigate = useNavigate()
   const qc = useQueryClient()
   const params = useParams()
+  const { hash } = useLocation()
   const activeBoardId = params.id ?? null
   const collection = useTasksStore(s => s.collection)
   const setCollection = useTasksStore(s => s.setCollection)
@@ -36,6 +42,14 @@ export default function TasksSidebarBody({ collapsed = false }: { collapsed?: bo
   const [editing, setEditing] = useState<Board | null>(null)
 
   const { data: boards = [] } = useQuery({ queryKey: ['tasks-boards'], queryFn: tasksApi.listBoards })
+
+  // The hash drives the collection: opening `/tasks/#collection/today` directly,
+  // or pressing Back after a change, applies it to the store the views read.
+  useEffect(() => {
+    const parsed = fromHash(hash)
+    if (parsed?.kind !== 'collection') return
+    if (COLLECTIONS.some(c => c.key === parsed.id)) setCollection(parsed.id as Collection)
+  }, [hash, setCollection])
 
   const removeBoard = async (board: Board) => {
     if (await confirm({ title: t('delete_board'), message: t('confirm_delete_board'), confirmLabel: t('delete'), variant: 'danger' })) {
@@ -62,7 +76,7 @@ export default function TasksSidebarBody({ collapsed = false }: { collapsed?: bo
           icon={c.icon}
           collapsed={collapsed}
           active={!activeBoardId && collection === c.key}
-          onClick={() => { setCollection(c.key); navigate('/tasks') }}
+          to={hashTo('collection', c.key)}
         />
       ))}
 
@@ -89,14 +103,26 @@ export default function TasksSidebarBody({ collapsed = false }: { collapsed?: bo
           />
           {/* Menu Modifier/Supprimer (clic gauche sur «…» ou clic droit sur la ligne) */}
           {!collapsed && (
-            <button
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ board: b, pos: { top: e.clientY, left: e.clientX } }) }}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100
-                         text-text-tertiary hover:text-text-primary hover:bg-surface-2 z-10"
+            <a
+              href="#"
+              role="button"
               title={t('edit_board')}
+              aria-label={t('edit_board')}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ board: b, pos: { top: e.clientY, left: e.clientX } }) }}
+              // Enter is handled natively by the anchor; only Space needs wiring.
+              onKeyDown={(e) => {
+                if (e.key === ' ') {
+                  e.preventDefault(); e.stopPropagation()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setMenu({ board: b, pos: { top: r.bottom, left: r.left } })
+                }
+              }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100
+                         text-text-tertiary hover:text-text-primary hover:bg-surface-2 z-10
+                         cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
             >
               <MoreVertical size={15} />
-            </button>
+            </a>
           )}
         </div>
       ))}

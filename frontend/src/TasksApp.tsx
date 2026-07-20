@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import TasksKanbanBoard from './TasksKanbanBoard'
 import TasksListView from './TasksListView'
@@ -16,6 +16,14 @@ export default function TasksApp() {
   useEffect(() => {
     setCurrentBoard(boardId)
   }, [boardId, setCurrentBoard])
+
+  // Deep link `?task=<id>` (used by cross-module data cards): opens the detail panel.
+  const [searchParams] = useSearchParams()
+  const selectTask = useTasksStore(s => s.selectTask)
+  useEffect(() => {
+    const tid = searchParams.get('task')
+    if (tid) selectTask(tid)
+  }, [searchParams, selectTask])
 
   return (
     <div className="h-full flex flex-col bg-surface-0">

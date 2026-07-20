@@ -14,6 +14,7 @@ interface TasksPrefs {
   hideCompleted:  boolean
   confirmDelete:  boolean
   groupBy:        string  // 'none' | 'priority' | 'due'
+  [key: string]:  unknown // satisfies ModuleSettingsRegistry's Record constraint
 }
 
 const DEFAULT_PREFS: TasksPrefs = {

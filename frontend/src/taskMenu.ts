@@ -10,6 +10,8 @@ export interface TaskMenuActions {
   onMoveToBoard: (id: string, boardId: string) => void
   onAddSubtask: (task: Task) => void
   onExportIcs: (task: Task) => void
+  onCopyCard: (task: Task) => void
+  onKubunoLabels: (task: Task) => void
   onDelete: (task: Task) => void
 }
 
@@ -51,6 +53,10 @@ export function buildTaskMenu(
 
   items.push(
     { type: 'action', label: t('export_ics'), onClick: () => a.onExportIcs(task) },
+    // Cross-module copy: JSON envelope pasteable as a rich card in chat, notes…
+    { type: 'action', label: t('copy_card', { defaultValue: 'Copier pour Kubuno' }), onClick: () => a.onCopyCard(task) },
+    // Cross-module labels (core-managed, browsable at /labels).
+    { type: 'action', label: t('kubuno_labels', { defaultValue: 'Étiquettes Kubuno…' }), onClick: () => a.onKubunoLabels(task) },
     { type: 'separator' },
     { type: 'action', label: t('delete'), icon: undefined, onClick: () => a.onDelete(task) },
   )
