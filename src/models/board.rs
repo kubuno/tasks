@@ -21,6 +21,12 @@ pub struct Board {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateBoardDto {
+    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    #[serde(default)]
+    pub id: Option<Uuid>,
+    /// Optional client-minted ids for the 3 default kanban stacks (in order).
+    #[serde(default)]
+    pub initial_stack_ids: Option<Vec<Uuid>>,
     #[validate(length(min = 1, max = 255))]
     pub title:       String,
     pub description: Option<String>,

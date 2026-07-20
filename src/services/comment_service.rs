@@ -25,11 +25,12 @@ impl CommentService {
         // Tout utilisateur ayant accès à la tâche (board partagé OU assigné) peut commenter.
         TaskService::assert_task_access(task_id, user_id, "read", db).await?;
         let row = sqlx::query_as::<_, Comment>(
-            "INSERT INTO tasks.comments (task_id, author_id, body) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO tasks.comments (id, task_id, author_id, body) VALUES (COALESCE($4, uuid_generate_v4()), $1, $2, $3) RETURNING *",
         )
         .bind(task_id)
         .bind(user_id)
         .bind(&dto.body)
+        .bind(dto.id)
         .fetch_one(db)
         .await?;
         Ok(row)

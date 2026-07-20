@@ -14,6 +14,9 @@ pub struct Stack {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateStackDto {
+    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    #[serde(default)]
+    pub id: Option<Uuid>,
     #[validate(length(min = 1, max = 255))]
     pub title:      String,
     pub sort_order: Option<i32>,

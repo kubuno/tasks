@@ -35,11 +35,12 @@ impl StackService {
             .unwrap_or(0),
         };
         let row = sqlx::query_as::<_, Stack>(
-            "INSERT INTO tasks.stacks (board_id, title, sort_order) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO tasks.stacks (id, board_id, title, sort_order) VALUES (COALESCE($4, uuid_generate_v4()), $1, $2, $3) RETURNING *",
         )
         .bind(board_id)
         .bind(&dto.title)
         .bind(sort_order)
+        .bind(dto.id)
         .fetch_one(db)
         .await?;
         Ok(row)

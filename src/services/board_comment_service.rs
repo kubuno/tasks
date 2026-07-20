@@ -25,11 +25,12 @@ impl BoardCommentService {
     pub async fn create(board_id: Uuid, user_id: Uuid, dto: CreateCommentDto, db: &PgPool) -> Result<BoardComment> {
         BoardService::assert_access(board_id, user_id, "read", db).await?;
         let row = sqlx::query_as::<_, BoardComment>(
-            "INSERT INTO tasks.board_comments (board_id, author_id, body) VALUES ($1, $2, $3) RETURNING *",
+            "INSERT INTO tasks.board_comments (id, board_id, author_id, body) VALUES (COALESCE($4, uuid_generate_v4()), $1, $2, $3) RETURNING *",
         )
         .bind(board_id)
         .bind(user_id)
         .bind(&dto.body)
+        .bind(dto.id)
         .fetch_one(db)
         .await?;
         Ok(row)
