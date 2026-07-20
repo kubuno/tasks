@@ -10,6 +10,8 @@ import { tasksApi, type Task, type Stack } from './api'
 import { useTasksStore } from './store'
 import TaskCard from './TaskCard'
 import { buildTaskMenu } from './taskMenu'
+import { copyKubunoData, openLabelPicker } from './kubunoData'
+import { taskEnvelope } from './TasksDataCard'
 
 interface Props {
   boardId: string
@@ -118,6 +120,8 @@ export default function TasksKanbanBoard({ boardId }: Props) {
       if (title?.trim()) { await tasksApi.createSubtask(task.id, { board_id: boardId, title: title.trim() }); invalidate() }
     },
     onExportIcs: (task: Task) => window.open(`/api/v1/tasks/tasks/${task.id}/ics`, '_blank'),
+    onCopyCard: (task: Task) => { copyKubunoData(taskEnvelope(task)).catch(() => {}) },
+    onKubunoLabels: (task: Task) => { openLabelPicker(taskEnvelope(task)).catch(() => {}) },
     onDelete: async (task: Task) => {
       if (await confirm({ title: t('delete_task'), message: t('confirm_delete_task'), confirmLabel: t('delete'), variant: 'danger' }))
         deleteTaskMut.mutate(task.id)

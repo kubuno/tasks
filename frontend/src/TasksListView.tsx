@@ -11,6 +11,8 @@ import { tasksApi, type Task, type Collection } from './api'
 import { useTasksStore } from './store'
 import { priorityLevel, PRIORITY_COLORS, isOverdue, shortDateTime } from './helpers'
 import { buildTaskMenu } from './taskMenu'
+import { copyKubunoData, openLabelPicker } from './kubunoData'
+import { taskEnvelope } from './TasksDataCard'
 
 interface Props {
   /** Si défini, liste les tâches du board ; sinon utilise la collection du store. */
@@ -42,8 +44,9 @@ function TaskRow({ task, depth, onOpen, onToggle, onDelete, expandable, expanded
       onContextMenu={(e) => onContextMenu?.(e, task)}
       {...swipe.handlers}
       className={`relative flex items-center gap-2 px-3 py-2 cursor-pointer border-b border-border/60
-        ${swipe.dx > 0 ? 'bg-success/20' : swipe.dx < 0 ? 'bg-danger/20' : 'hover:bg-surface-1'}`}
-      style={{ paddingLeft: 12 + depth * 22, borderLeft: barColor ? `3px solid ${barColor}` : undefined,
+        ${swipe.dx > 0 ? 'bg-success/20' : swipe.dx < 0 ? 'bg-danger/20' : (barColor ? '' : 'hover:bg-surface-1')}`}
+      style={{ paddingLeft: 12 + depth * 22,
+               background: (barColor && swipe.dx === 0) ? `color-mix(in srgb, ${barColor} 9%, white)` : undefined,
                transform: swipe.dx !== 0 ? `translateX(${swipe.dx}px)` : undefined,
                transition: swipe.swiping ? 'none' : 'transform 0.2s ease', touchAction: 'pan-y' }}
     >
@@ -150,6 +153,8 @@ export default function TasksListView({ boardId }: Props) {
       if (title?.trim()) { await tasksApi.createSubtask(task.id, { board_id: task.board_id, title: title.trim() }); invalidate() }
     },
     onExportIcs: (task: Task) => window.open(`/api/v1/tasks/tasks/${task.id}/ics`, '_blank'),
+    onCopyCard: (task: Task) => { copyKubunoData(taskEnvelope(task)).catch(() => {}) },
+    onKubunoLabels: (task: Task) => { openLabelPicker(taskEnvelope(task)).catch(() => {}) },
     onDelete: async (task: Task) => {
       if (await confirm({ title: t('delete_task'), message: t('confirm_delete_task'), confirmLabel: t('delete'), variant: 'danger' }))
         deleteTaskMut.mutate(task.id)

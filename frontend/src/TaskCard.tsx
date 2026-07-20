@@ -34,10 +34,10 @@ export default function TaskCard({
       onDragStart={(e) => onDragStart?.(e, task)}
       onClick={(e) => { if (selectionActive && onToggleSelect) { onToggleSelect(task) } else { onOpen(task.id) } void e }}
       onContextMenu={(e) => onContextMenu?.(e, task)}
-      className={`group bg-white rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${
+      className={`group rounded-lg border p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${
         draggable ? 'active:cursor-grabbing' : ''
       } ${selected ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
-      style={{ borderLeft: `3px solid ${borderColor}` }}
+      style={{ background: `color-mix(in srgb, ${borderColor} 9%, white)` }}
     >
       <div className="flex items-start gap-2">
         {onToggleSelect && (selectionActive || selected) ? (
