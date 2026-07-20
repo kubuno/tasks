@@ -14,6 +14,9 @@ pub struct Comment {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateCommentDto {
+    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    #[serde(default)]
+    pub id: Option<Uuid>,
     #[validate(length(min = 1, max = 10000))]
     pub body: String,
 }

@@ -141,8 +141,8 @@ impl BoardService {
 
         let board = sqlx::query_as::<_, Board>(
             r#"
-            INSERT INTO tasks.boards (owner_id, title, description, color, board_type)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO tasks.boards (id, owner_id, title, description, color, board_type)
+            VALUES (COALESCE($6, uuid_generate_v4()), $1, $2, $3, $4, $5)
             RETURNING *
             "#,
         )
@@ -151,17 +151,21 @@ impl BoardService {
         .bind(&dto.description)
         .bind(&color)
         .bind(&board_type)
+        .bind(dto.id)
         .fetch_one(&mut *tx)
         .await?;
 
         if board_type == "kanban" {
             for (i, title) in ["À faire", "En cours", "Terminé"].iter().enumerate() {
+                // Client-minted stack ids (sync replay) are honoured in order.
+                let sid = dto.initial_stack_ids.as_ref().and_then(|v| v.get(i)).copied();
                 sqlx::query(
-                    "INSERT INTO tasks.stacks (board_id, title, sort_order) VALUES ($1, $2, $3)",
+                    "INSERT INTO tasks.stacks (id, board_id, title, sort_order) VALUES (COALESCE($4, uuid_generate_v4()), $1, $2, $3)",
                 )
                 .bind(board.id)
                 .bind(title)
                 .bind(i as i32)
+                .bind(sid)
                 .execute(&mut *tx)
                 .await?;
             }

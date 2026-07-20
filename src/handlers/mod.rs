@@ -1,4 +1,5 @@
 pub mod attachments;
+pub mod delta;
 pub mod boards;
 pub mod caldav;
 pub mod comments;

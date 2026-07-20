@@ -26,8 +26,8 @@ impl LabelService {
         let color = dto.color.unwrap_or_else(|| "#888888".to_string());
         let row = sqlx::query_as::<_, Label>(
             r#"
-            INSERT INTO tasks.labels (board_id, title, color)
-            VALUES ($1, $2, $3)
+            INSERT INTO tasks.labels (id, board_id, title, color)
+            VALUES (COALESCE($4, uuid_generate_v4()), $1, $2, $3)
             ON CONFLICT (board_id, title) DO UPDATE SET color = EXCLUDED.color
             RETURNING *
             "#,
@@ -35,6 +35,7 @@ impl LabelService {
         .bind(board_id)
         .bind(&dto.title)
         .bind(&color)
+        .bind(dto.id)
         .fetch_one(db)
         .await?;
         Ok(row)

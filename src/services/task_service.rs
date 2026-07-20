@@ -242,10 +242,10 @@ impl TaskService {
         let task = sqlx::query_as::<_, Task>(
             r#"
             INSERT INTO tasks.tasks
-                (board_id, stack_id, parent_task_id, owner_id, title, description,
+                (id, board_id, stack_id, parent_task_id, owner_id, title, description,
                  status, priority, percent_complete, due_at, start_at, completed_at,
                  all_day, color, rrule, reminders, ical_uid, position, linked_event_id)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+            VALUES (COALESCE($20, uuid_generate_v4()),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
             RETURNING *
             "#,
         )
@@ -268,6 +268,7 @@ impl TaskService {
         .bind(&uid)
         .bind(position)
         .bind(dto.linked_event_id)
+        .bind(dto.id)
         .fetch_one(&mut *tx)
         .await?;
 
