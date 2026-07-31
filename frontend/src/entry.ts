@@ -10,8 +10,24 @@ import {
   NotificationRegistry,
   SlotRegistry,
   useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore,
+  useAuthStore, api, i18n,
   SDK_VERSION,
 } from '@kubuno/sdk'
+
+// Per-user preference: should the calendar overlay include completed tasks?
+// Stored in the module's own bag (core.users.preferences.tasks). Read fresh each
+// time so both the overlay fetch and the view-menu toggle stay in sync.
+function showCompletedInCalendar(): boolean {
+  const p = useAuthStore.getState().user?.preferences?.tasks as Record<string, unknown> | undefined
+  const v = p?.show_completed_in_calendar
+  return typeof v === 'boolean' ? v : true
+}
+async function setShowCompletedInCalendar(value: boolean): Promise<void> {
+  const current = (useAuthStore.getState().user?.preferences?.tasks ?? {}) as Record<string, unknown>
+  const { data } = await api.patch<{ user: { preferences: Record<string, unknown> } }>(
+    '/me', { preferences: { tasks: { ...current, show_completed_in_calendar: value } } })
+  if (data?.user) useAuthStore.getState().updateUser({ preferences: data.user.preferences })
+}
 import { CheckSquare } from 'lucide-react'
 import './index.css'
 import './i18n'
@@ -123,8 +139,11 @@ export function register() {
           tasksApi.listBoards(),
         ])
         const boardColor = new Map(boards.map(b => [b.id, b.color]))
+        const showDone = showCompletedInCalendar()
         return tasks
           .filter(t => t.due_at)
+          // "Show completed tasks" is owned by tasks: hide done ones when off.
+          .filter(t => showDone || t.status !== 'done')
           .map<CalendarOverlayItem>(t => ({
             id:    `task-${t.id}`,
             date:  format(parseISO(t.due_at as string), 'yyyy-MM-dd'),
@@ -138,4 +157,14 @@ export function register() {
       }
     },
   } satisfies CalendarOverlayProvider)
+
+  // Contribute the "Show completed tasks" toggle to the calendar's view menu.
+  // The calendar owns no reference to tasks; it renders whatever is registered
+  // under this convention key and re-fetches its overlays when the toggle flips.
+  ExtensionRegistry.register('calendar.view-option', 'tasks', {
+    id:        'tasks-show-completed',
+    label:     () => i18n.t('tasks:calendar_show_completed', { defaultValue: 'Afficher les tâches terminées' }),
+    isChecked: () => showCompletedInCalendar(),
+    setChecked: (v: boolean) => setShowCompletedInCalendar(v),
+  })
 }

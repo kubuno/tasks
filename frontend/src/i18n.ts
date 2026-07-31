@@ -95,6 +95,7 @@ const en = {
   view_list: "List",
   view_kanban: "Board",
   view_calendar: "Calendar",
+  calendar_show_completed: "Show completed tasks",
 }
 
 const fr: typeof en = {
@@ -192,6 +193,7 @@ const fr: typeof en = {
   view_list: "Liste",
   view_kanban: "Tableau",
   view_calendar: "Calendrier",
+  calendar_show_completed: "Afficher les tâches terminées",
 }
 
 const es: typeof en = {
@@ -289,6 +291,7 @@ const es: typeof en = {
   view_list: "Lista",
   view_kanban: "Tablero",
   view_calendar: "Calendario",
+  calendar_show_completed: "Mostrar las tareas completadas",
 }
 
 const pt: typeof en = {
@@ -386,6 +389,7 @@ const pt: typeof en = {
   view_list: "Lista",
   view_kanban: "Quadro",
   view_calendar: "Calendário",
+  calendar_show_completed: "Mostrar as tarefas concluídas",
 }
 
 const it: typeof en = {
@@ -483,6 +487,7 @@ const it: typeof en = {
   view_list: "Elenco",
   view_kanban: "Bacheca",
   view_calendar: "Calendario",
+  calendar_show_completed: "Mostra le attività completate",
 }
 
 const de: typeof en = {
@@ -580,6 +585,7 @@ const de: typeof en = {
   view_list: "Liste",
   view_kanban: "Board",
   view_calendar: "Kalender",
+  calendar_show_completed: "Erledigte Aufgaben anzeigen",
 }
 
 const el: typeof en = {
@@ -677,6 +683,7 @@ const el: typeof en = {
   view_list: "Λίστα",
   view_kanban: "Πίνακας",
   view_calendar: "Ημερολόγιο",
+  calendar_show_completed: "Εμφάνιση ολοκληρωμένων εργασιών",
 }
 
 const ru: typeof en = {
@@ -774,6 +781,7 @@ const ru: typeof en = {
   view_list: "Список",
   view_kanban: "Доска",
   view_calendar: "Календарь",
+  calendar_show_completed: "Показывать завершённые задачи",
 }
 
 const ar: typeof en = {
@@ -871,6 +879,7 @@ const ar: typeof en = {
   view_list: "قائمة",
   view_kanban: "لوحة",
   view_calendar: "تقويم",
+  calendar_show_completed: "إظهار المهام المكتملة",
 }
 
 const he: typeof en = {
@@ -968,6 +977,7 @@ const he: typeof en = {
   view_list: "רשימה",
   view_kanban: "לוח",
   view_calendar: "לוח שנה",
+  calendar_show_completed: "הצגת משימות שהושלמו",
 }
 
 const hi: typeof en = {
@@ -1065,6 +1075,7 @@ const hi: typeof en = {
   view_list: "सूची",
   view_kanban: "बोर्ड",
   view_calendar: "कैलेंडर",
+  calendar_show_completed: "पूर्ण कार्य दिखाएँ",
 }
 
 const zh: typeof en = {
@@ -1162,6 +1173,7 @@ const zh: typeof en = {
   view_list: "列表",
   view_kanban: "看板",
   view_calendar: "日历",
+  calendar_show_completed: "显示已完成的任务",
 }
 
 const ja: typeof en = {
@@ -1259,6 +1271,7 @@ const ja: typeof en = {
   view_list: "リスト",
   view_kanban: "ボード",
   view_calendar: "カレンダー",
+  calendar_show_completed: "完了したタスクを表示",
 }
 
 registerModuleTranslations('tasks', { en, fr, es, pt, it, de, el, ru, ar, he, hi, zh, ja })
