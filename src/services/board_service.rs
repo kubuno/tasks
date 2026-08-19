@@ -2,6 +2,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
+    config::InstanceConfig,
     errors::{Result, TasksError},
     models::board::{Board, BoardShare, CreateBoardDto, ShareBoardDto, UpdateBoardDto},
 };
@@ -129,6 +130,34 @@ impl BoardService {
         Ok(row)
     }
 
+    /// Refuses one more board when the account already sits at the ceiling the
+    /// administrator set (`0` = no ceiling).
+    ///
+    /// Called from the path a person drives, never from `ensure_default`: an
+    /// account with no board at all has no working module, and a ceiling lowered
+    /// afterwards must never produce that.
+    pub async fn assert_can_create(
+        user_id: Uuid,
+        instance: &InstanceConfig,
+        db: &PgPool,
+    ) -> Result<()> {
+        if instance.max_boards_per_user <= 0 {
+            return Ok(());
+        }
+        let owned: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM tasks.boards WHERE owner_id = $1")
+                .bind(user_id)
+                .fetch_one(db)
+                .await?;
+        if owned >= instance.max_boards_per_user {
+            return Err(TasksError::Validation(format!(
+                "Nombre maximal de tableaux atteint ({}) — supprimez-en un ou contactez votre administration",
+                instance.max_boards_per_user
+            )));
+        }
+        Ok(())
+    }
+
     /// Crée un board ; pour un board kanban, ajoute trois colonnes par défaut.
     pub async fn create(user_id: Uuid, dto: CreateBoardDto, db: &PgPool) -> Result<Board> {
         let color      = dto.color.unwrap_or_else(|| "#1a73e8".to_string());
@@ -232,7 +261,21 @@ impl BoardService {
         Ok(())
     }
 
-    pub async fn share(id: Uuid, user_id: Uuid, dto: ShareBoardDto, db: &PgPool) -> Result<BoardShare> {
+    pub async fn share(
+        id: Uuid,
+        user_id: Uuid,
+        dto: ShareBoardDto,
+        instance: &InstanceConfig,
+        db: &PgPool,
+    ) -> Result<BoardShare> {
+        // Sharing a board hands its tasks, comments and attachments to another
+        // account; an instance that keeps task lists strictly personal closes it
+        // here, where every share (creation and permission change) passes.
+        if !instance.allow_board_sharing {
+            return Err(TasksError::Validation(
+                "Le partage d'un tableau est désactivé sur cette instance".to_string(),
+            ));
+        }
         Self::assert_access(id, user_id, "admin", db).await?;
         // Le board par défaut n'est jamais partagé (ses tâches peuvent l'être via l'attribution).
         let is_default: bool =

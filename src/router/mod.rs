@@ -6,7 +6,7 @@ use axum::{
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::{attachments, boards, caldav, comments, delta, health, import_export, labels, stacks, tasks},
+    handlers::{attachments, boards, caldav, comments, delta, health, import_export, labels, policy, stacks, tasks},
     middleware::require_auth,
     state::AppState,
 };
@@ -14,6 +14,7 @@ use crate::{
 pub fn build(state: AppState) -> Router {
     let authed = Router::new()
         // Boards
+        .route("/instance-policy",          get(policy::instance_policy))
         .route("/boards",                   get(boards::list).post(boards::create))
         .route("/boards/delta",             get(delta::boards_delta))
         .route("/tasks/delta",              get(delta::tasks_delta))

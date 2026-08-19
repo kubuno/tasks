@@ -29,6 +29,7 @@ pub async fn create(
     Json(dto): Json<CreateBoardDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     dto.validate().map_err(|e| TasksError::Validation(e.to_string()))?;
+    BoardService::assert_can_create(user.id, &state.instance(), &state.db).await?;
     let board = BoardService::create(user.id, dto, &state.db).await?;
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "board": board }))))
 }
@@ -68,7 +69,7 @@ pub async fn share(
     Path(id): Path<Uuid>,
     Json(dto): Json<ShareBoardDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    let share = BoardService::share(id, user.id, dto, &state.db).await?;
+    let share = BoardService::share(id, user.id, dto, &state.instance(), &state.db).await?;
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "share": share }))))
 }
 

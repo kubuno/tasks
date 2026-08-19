@@ -8,10 +8,12 @@
  */
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { CheckSquare, Loader2 } from 'lucide-react'
 import { Button, Dropdown, FloatingWindow, Input, Textarea } from '@ui'
 import { tasksApi, type Board } from './api'
 import { useTaskCreateStore, type CreateTaskOptions, type CreatedTask } from './taskCreateStore'
+import { setSharedQueryClient } from './queryClient'
 
 interface Props {
   opts: CreateTaskOptions
@@ -137,6 +139,11 @@ function TaskCreateInner({ opts, onClose }: Props) {
 export default function TaskCreateDialog() {
   const opts    = useTaskCreateStore(s => s.createOpts)
   const resolve = useTaskCreateStore(s => s._resolve)
+
+  // Mounted globally (slot `app-dialogs`): capture the host's react-query
+  // client so non-React code (shell.new-actions items) can invalidate queries.
+  const qc = useQueryClient()
+  useEffect(() => { setSharedQueryClient(qc) }, [qc])
 
   if (!opts) return null
 

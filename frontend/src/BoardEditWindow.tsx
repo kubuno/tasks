@@ -9,6 +9,7 @@ import { useConfirm } from '@kubuno/sdk'
 import { useAuthStore } from '@kubuno/sdk'
 import { tasksApi, type Board } from './api'
 import UserPicker, { UserAvatar } from './UserPicker'
+import { useInstancePolicy } from './instancePolicy'
 import CommentThread from './CommentThread'
 
 const SWATCHES = ['#1a73e8', '#1e8e3e', '#d93025', '#f9ab00', '#9334e6', '#e8710a', '#12b5cb', '#5f6368']
@@ -89,9 +90,15 @@ export default function BoardEditWindow({ board, onClose, onDeleted }: Props) {
 
   const caldavUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/tasks/caldav/${user?.username ?? 'user'}/${board.caldav_token}/`
 
+  // Sharing may be closed instance-wide; the server refuses it either way, so
+  // the tab that offers it does not appear at all.
+  const policy = useInstancePolicy()
+
   const tabs: { id: Tab; label: string }[] = [
     { id: 'general', label: t('general') },
-    ...(board.is_default ? [] : [{ id: 'share' as Tab, label: t('share') }]),
+    ...(board.is_default || !policy.allowBoardSharing
+      ? []
+      : [{ id: 'share' as Tab, label: t('share') }]),
     { id: 'comments', label: t('comments') },
     { id: 'caldav', label: 'CalDAV' },
   ]

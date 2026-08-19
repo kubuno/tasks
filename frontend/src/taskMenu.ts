@@ -58,7 +58,7 @@ export function buildTaskMenu(
     // Cross-module labels (core-managed, browsable at /labels).
     { type: 'action', label: t('kubuno_labels', { defaultValue: 'Étiquettes Kubuno…' }), onClick: () => a.onKubunoLabels(task) },
     { type: 'separator' },
-    { type: 'action', label: t('delete'), icon: undefined, onClick: () => a.onDelete(task) },
+    { type: 'action', label: t('delete'), icon: undefined, shortcut: 'Suppr', onClick: () => a.onDelete(task) },
   )
   return items
 }

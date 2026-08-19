@@ -37,6 +37,90 @@ path     = "/tasks/boards"
 position = 23
 section  = "main"
 
+# ── Admin panel pages ─────────────────────────────────────────────────────────
+# Each becomes an entry of the admin menu (Modules → Tasks), at its own address.
+# Only instance-scoped settings (global | overridable) reach the admin panel, and
+# every one of them is applied by the module's server — see src/config/instance.rs
+# and the guards that read it.
+
+[[setting_groups]]
+id          = "sharing"
+label       = "Partage"
+icon        = "Share2"
+position    = 1
+description = "Ce que les comptes peuvent s'échanger : partage d'un tableau avec d'autres personnes."
+
+[[setting_groups]]
+id          = "limits"
+label       = "Limites et conservation"
+icon        = "Gauge"
+position    = 2
+description = "Plafonds appliqués par le serveur et durée de conservation des tâches terminées."
+
+[[settings]]
+key         = "allow_board_sharing"
+scope       = "global"
+group       = "sharing"
+type        = "bool"
+default     = true
+category    = "Tableaux"
+label       = "Autoriser le partage d'un tableau"
+description = "Partager un tableau donne accès à ses tâches, commentaires et pièces jointes. Désactivé, le serveur refuse tout nouveau partage et toute modification de permission ; les tâches restent attribuables individuellement."
+
+[[settings]]
+key         = "max_boards_per_user"
+scope       = "global"
+group       = "limits"
+type        = "int"
+default     = 0
+min         = 0
+max         = 10000
+category    = "Limites"
+label       = "Nombre maximal de tableaux par compte"
+description = "Plafond appliqué à la création d'un tableau. Le tableau par défaut, créé automatiquement, n'est jamais refusé. 0 = illimité."
+
+[[settings]]
+key         = "max_tasks_per_board"
+scope       = "global"
+group       = "limits"
+type        = "int"
+default     = 0
+min         = 0
+max         = 1000000
+category    = "Limites"
+label       = "Nombre maximal de tâches par tableau"
+description = "Plafond appliqué à la création d'une tâche, sous-tâches comprises. 0 = illimité."
+
+[[settings]]
+key         = "completed_task_retention_days"
+scope       = "global"
+group       = "limits"
+type        = "int"
+default     = 0
+min         = 0
+max         = 3650
+category    = "Conservation"
+label       = "Conservation des tâches terminées (jours)"
+description = "Au-delà de ce délai, une tâche terminée est supprimée définitivement par le serveur, avec ses sous-tâches, ses commentaires et ses pièces jointes. Une tâche dont une sous-tâche reste ouverte n'est jamais purgée. 0 = conserver indéfiniment."
+
+[[setting_groups]]
+id       = "attachments"
+label    = "Pièces jointes"
+icon     = "Paperclip"
+position = 10
+
+[[settings]]
+key         = "attachment_max_mb"
+scope       = "global"
+type        = "int"
+group       = "attachments"
+default     = 25
+min         = 0
+max         = 1048576
+category    = "Pièces jointes"
+label       = "Taille maximale d'une pièce jointe (Mo)"
+description = "Plafond, en mégaoctets, de la taille déclarée d'une pièce jointe de tâche. Le fichier lui-même est stocké dans Drive ; ce plafond s'applique à l'enregistrement de la pièce jointe. 0 = illimité."
+
 [events]
 subscribed = [
     "UserDeleted",

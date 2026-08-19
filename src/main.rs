@@ -7,10 +7,10 @@ use kubuno_tasks::{
     state::AppState,
 };
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 // ── Lecture de module.toml ─────────────────────────────────────────────────────
@@ -21,6 +21,48 @@ struct Manifest {
     #[serde(default)]
     sidebar_items: Vec<SidebarItemRaw>,
     events:        Option<ManifestEvents>,
+    /// Declarative instance settings (e.g. attachment size ceiling).
+    #[serde(default)]
+    settings:      Vec<SettingDefRaw>,
+    /// Pages the admin panel is split into (`[[setting_groups]]`).
+    #[serde(default)]
+    setting_groups: Vec<SettingGroupRaw>,
+}
+
+/// One `[[setting_groups]]` entry of module.toml, forwarded verbatim. `id` is a
+/// STABLE, UNTRANSLATED slug: it travels in the URL of the admin page.
+#[derive(Deserialize, Serialize)]
+struct SettingGroupRaw {
+    id:          String,
+    label:       String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon:        Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    position:    Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+}
+
+/// One `[[settings]]` entry from module.toml, forwarded verbatim.
+#[derive(Deserialize, Serialize)]
+struct SettingDefRaw {
+    key:         String,
+    scope:       String,
+    #[serde(rename = "type")]
+    value_type:  String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    values:      Option<serde_json::Value>,
+    default:     serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    label:       Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    category:    Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    group:       Option<String>,
+    #[serde(default)]
+    public:      bool,
 }
 
 #[derive(Deserialize)]
@@ -131,13 +173,46 @@ async fn main() -> Result<()> {
             .context("Migrations")?;
     }
 
+    let http = Client::new();
+
+    // Initial fetch of the admin-editable instance settings; fall back to the
+    // compiled defaults if the core is not yet reachable (the refresher below
+    // will pick them up once it comes back).
+    let instance = kubuno_tasks::config::fetch_instance(
+        &http, &settings.core.url, &settings.core.internal_secret,
+    )
+    .await
+    .unwrap_or_default();
+    let instance = Arc::new(RwLock::new(instance));
+
     let state = AppState {
         db:       pool,
         settings: Arc::new(settings.clone()),
+        instance: instance.clone(),
     };
 
+    // Refresh the instance settings from the core every 60s so admin edits take
+    // effect without a restart. A failed fetch keeps the last known values.
+    {
+        let http_r     = http.clone();
+        let core_url   = settings.core.url.clone();
+        let secret     = settings.core.internal_secret.clone();
+        let instance_r = instance.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(60)).await;
+                if let Some(fresh) =
+                    kubuno_tasks::config::fetch_instance(&http_r, &core_url, &secret).await
+                {
+                    if let Ok(mut guard) = instance_r.write() {
+                        *guard = fresh;
+                    }
+                }
+            }
+        });
+    }
+
     // Enregistrement auprès du core (avec retry infini)
-    let http = Client::new();
     register_with_core(&http, &settings).await;
 
     // Heartbeat toutes les 30s
@@ -170,6 +245,16 @@ async fn main() -> Result<()> {
         let state2 = Arc::new(state.clone());
         tokio::spawn(async move {
             ReminderService::run_worker(state2).await;
+        });
+    }
+
+    // Retention cleaner: purges tasks completed long ago when the administrator
+    // set a retention. Idle (and silent) while the setting is left at "never".
+    {
+        let state2 = state.clone();
+        tokio::spawn(async move {
+            use kubuno_tasks::services::retention_service::RetentionService;
+            RetentionService::run_worker(state2).await;
         });
     }
 
@@ -218,6 +303,15 @@ async fn register_with_core(http: &Client, settings: &Settings) {
         .map(|e| e.subscribed.clone())
         .unwrap_or_else(|| vec!["UserDeleted".into()]);
 
+    // Declarative instance settings + admin pages, forwarded so the core can render
+    // the generic form and split the admin panel into sub-menus.
+    let settings_schema: Vec<Value> = manifest.as_ref()
+        .map(|m| m.settings.iter().map(|s| serde_json::to_value(s).unwrap_or(Value::Null)).collect())
+        .unwrap_or_default();
+    let setting_groups: Vec<Value> = manifest.as_ref()
+        .map(|m| m.setting_groups.iter().map(|g| serde_json::to_value(g).unwrap_or(Value::Null)).collect())
+        .unwrap_or_default();
+
     let payload = json!({
         "module_id":         "tasks",
         "display_name":      display_name,
@@ -228,6 +322,8 @@ async fn register_with_core(http: &Client, settings: &Settings) {
         "routes":            [{ "method": "*", "path": "/*" }],
         "sidebar_items":     sidebar_items,
         "subscribed_events": subscribed_events,
+        "settings_schema":   settings_schema,
+        "setting_groups":    setting_groups,
     });
 
     for attempt in 1u32.. {

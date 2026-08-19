@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Plus, MoreVertical, Trash2, Pencil, ListPlus, X } from 'lucide-react'
@@ -8,6 +8,7 @@ import { useConfirm } from '@kubuno/sdk'
 import { prompt } from '@kubuno/sdk'
 import { tasksApi, type Task, type Stack } from './api'
 import { useTasksStore } from './store'
+import { useTaskCreateStore } from './taskCreateStore'
 import TaskCard from './TaskCard'
 import { buildTaskMenu } from './taskMenu'
 import { copyKubunoData, openLabelPicker } from './kubunoData'
@@ -22,6 +23,9 @@ export default function TasksKanbanBoard({ boardId }: Props) {
   const qc = useQueryClient()
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
   const selectTask = useTasksStore(s => s.selectTask)
+  const selectedTaskId = useTasksStore(s => s.selectedTaskId)
+  // The globally-mounted creation dialog: while it is up, it owns the keyboard.
+  const createOpts = useTaskCreateStore(s => s.createOpts)
   const [dragId, setDragId] = useState<string | null>(null)
   const [dragOverStack, setDragOverStack] = useState<string | null>(null)
   const [addingIn, setAddingIn] = useState<string | null>(null)
@@ -85,6 +89,50 @@ export default function TasksKanbanBoard({ boardId }: Props) {
     onSuccess: () => { setSelected(new Set()); invalidateAllBoards() },
   })
 
+  // ── Task context-menu actions ──
+  // Declared before the loading guard below: the Delete shortcut hooks into
+  // them, and a hook may never sit behind a conditional return.
+  const taskActions = {
+    onOpen: selectTask,
+    onToggleDone: (task: Task) => completeMut.mutate(task),
+    onSetPriority: (id: string, priority: number) => setPriorityMut.mutate({ id, priority }),
+    onMoveToBoard: (id: string, bId: string) => moveToBoardMut.mutate({ ids: [id], boardId: bId }),
+    onAddSubtask: async (task: Task) => {
+      const title = await prompt({ title: t('add_subtask'), placeholder: t('title'), confirmLabel: t('add') })
+      if (title?.trim()) { await tasksApi.createSubtask(task.id, { board_id: boardId, title: title.trim() }); invalidate() }
+    },
+    onExportIcs: (task: Task) => window.open(`/api/v1/tasks/tasks/${task.id}/ics`, '_blank'),
+    onCopyCard: (task: Task) => { copyKubunoData(taskEnvelope(task)).catch(() => {}) },
+    onKubunoLabels: (task: Task) => { openLabelPicker(taskEnvelope(task)).catch(() => {}) },
+    onDelete: async (task: Task) => {
+      if (await confirm({ title: t('delete_task'), message: t('confirm_delete_task'), confirmLabel: t('delete'), variant: 'danger' }))
+        deleteTaskMut.mutate(task.id)
+    },
+  }
+
+  // Delete = the card menu's "Supprimer", run on the selected task (the one the
+  // detail window is showing) — same confirmation, same request.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete') return
+      // Never steal the key from a field: there, it deletes text.
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // No current task, or a menu/dialog already owns the keyboard.
+      if (!selectedTaskId || taskMenu || stackMenu || confirmState || createOpts) return
+      // Fall back to the detail window's own cache entry: a subtask is selected
+      // without being a card of this board.
+      const task = tasks.find(tk => tk.id === selectedTaskId)
+        ?? qc.getQueryData<Task>(['task-detail', selectedTaskId])
+      if (!task) return
+      e.preventDefault()
+      void taskActions.onDelete(task)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaskId, tasks, taskMenu, stackMenu, confirmState, createOpts])
+
   if (loadingStacks || loadingTasks) {
     return <div className="flex items-center justify-center h-full"><div className="animate-pulse text-text-tertiary text-sm">…</div></div>
   }
@@ -107,25 +155,6 @@ export default function TasksKanbanBoard({ boardId }: Props) {
     const position = last ? last.position + 1 : 0
     moveMut.mutate({ id, stackId, position })
     setDragId(null); setDragOverStack(null)
-  }
-
-  // ── Actions du menu contextuel d'une tâche ──
-  const taskActions = {
-    onOpen: selectTask,
-    onToggleDone: (task: Task) => completeMut.mutate(task),
-    onSetPriority: (id: string, priority: number) => setPriorityMut.mutate({ id, priority }),
-    onMoveToBoard: (id: string, bId: string) => moveToBoardMut.mutate({ ids: [id], boardId: bId }),
-    onAddSubtask: async (task: Task) => {
-      const title = await prompt({ title: t('add_subtask'), placeholder: t('title'), confirmLabel: t('add') })
-      if (title?.trim()) { await tasksApi.createSubtask(task.id, { board_id: boardId, title: title.trim() }); invalidate() }
-    },
-    onExportIcs: (task: Task) => window.open(`/api/v1/tasks/tasks/${task.id}/ics`, '_blank'),
-    onCopyCard: (task: Task) => { copyKubunoData(taskEnvelope(task)).catch(() => {}) },
-    onKubunoLabels: (task: Task) => { openLabelPicker(taskEnvelope(task)).catch(() => {}) },
-    onDelete: async (task: Task) => {
-      if (await confirm({ title: t('delete_task'), message: t('confirm_delete_task'), confirmLabel: t('delete'), variant: 'danger' }))
-        deleteTaskMut.mutate(task.id)
-    },
   }
 
   const column = (stack: Stack | null, title: string, list: Task[]) => {

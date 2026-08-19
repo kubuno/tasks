@@ -6,5 +6,6 @@ pub mod comments;
 pub mod health;
 pub mod import_export;
 pub mod labels;
+pub mod policy;
 pub mod stacks;
 pub mod tasks;

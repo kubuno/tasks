@@ -30,7 +30,7 @@ pub async fn create(
     Json(dto): Json<CreateAttachmentDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     dto.validate().map_err(|e| TasksError::Validation(e.to_string()))?;
-    let attachment = AttachmentService::create(task_id, user.id, dto, &state.db).await?;
+    let attachment = AttachmentService::create(task_id, user.id, dto, state.instance(), &state.db).await?;
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "attachment": attachment }))))
 }
 

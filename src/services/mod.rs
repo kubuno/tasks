@@ -5,5 +5,6 @@ pub mod comment_service;
 pub mod icalendar_service;
 pub mod label_service;
 pub mod reminder_service;
+pub mod retention_service;
 pub mod stack_service;
 pub mod task_service;
