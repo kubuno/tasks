@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight, ChevronDown, Plus, CheckCircle2, Circle } from 'lucide-react'
@@ -9,6 +9,7 @@ import { useConfirm } from '@kubuno/sdk'
 import { prompt } from '@kubuno/sdk'
 import { tasksApi, type Task, type Collection } from './api'
 import { useTasksStore } from './store'
+import { useTaskCreateStore } from './taskCreateStore'
 import { priorityLevel, PRIORITY_COLORS, isOverdue, shortDateTime } from './helpers'
 import { buildTaskMenu } from './taskMenu'
 import { copyKubunoData, openLabelPicker } from './kubunoData'
@@ -104,6 +105,9 @@ export default function TasksListView({ boardId }: Props) {
   const collection = useTasksStore(s => s.collection)
   const search = useTasksStore(s => s.searchQuery)
   const selectTask = useTasksStore(s => s.selectTask)
+  const selectedTaskId = useTasksStore(s => s.selectedTaskId)
+  // The globally-mounted creation dialog: while it is up, it owns the keyboard.
+  const createOpts = useTaskCreateStore(s => s.createOpts)
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState(false)
@@ -162,6 +166,29 @@ export default function TasksListView({ boardId }: Props) {
   }
   const openTaskMenu = (e: React.MouseEvent, task: Task) => { e.preventDefault(); setTaskMenu({ task, pos: { top: e.clientY, left: e.clientX } }) }
   const taskMenuItems: MenuItem[] = taskMenu ? buildTaskMenu(taskMenu.task, boards, t, taskActions) : []
+
+  // Delete = the row menu's "Supprimer", run on the selected task (the one the
+  // detail window is showing) — same confirmation, same request.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete') return
+      // Never steal the key from a field: there, it deletes text.
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // No current task, or a menu/dialog already owns the keyboard.
+      if (!selectedTaskId || taskMenu || confirmState || createOpts) return
+      // Fall back to the detail window's own cache entry: a subtask (or a task
+      // of another collection) is selected without being a row of this list.
+      const task = tasks.find(tk => tk.id === selectedTaskId)
+        ?? qc.getQueryData<Task>(['task-detail', selectedTaskId])
+      if (!task) return
+      e.preventDefault()
+      void taskActions.onDelete(task)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTaskId, tasks, taskMenu, confirmState, createOpts])
 
   if (isLoading) return <div className="flex items-center justify-center h-full"><Spinner /></div>
 

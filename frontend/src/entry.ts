@@ -33,7 +33,7 @@ import './index.css'
 import './i18n'
 import { tasksApi } from './api'
 import { useTasksStore } from './store'
-import TasksCreateMenu from './TasksCreateMenu'
+import { newActionItems } from './newActions'
 import TasksSidebarBody from './TasksSidebarBody'
 import TasksToolbar from './TasksToolbar'
 import TasksMiniPanel from './TasksMiniPanel'
@@ -88,11 +88,18 @@ export function register() {
 
   WidgetRegistry.register({ id: 'tasks-due', moduleId: 'tasks', Component: TasksDueWidget, size: 'medium', order: 12 })
 
+  // "New" button menu: MenuItem[] DATA contributed to the shell's extension
+  // point (rendered by the project's MenuDropdown; `items` is re-evaluated on
+  // each open, so labels and store state stay fresh).
+  ExtensionRegistry.register('shell.new-actions', 'tasks', {
+    moduleId: 'tasks',
+    items: newActionItems,
+  })
+
   useSidebarStore.getState().register({
     moduleId:          'tasks',
     routePrefix:       '/tasks',
     newButtonLabelKey: 'tasks:create',
-    NewActions:        TasksCreateMenu,
     SidebarBody:       TasksSidebarBody,
     collapsedBody:     true,
   })

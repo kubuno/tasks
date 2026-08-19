@@ -44,7 +44,7 @@ pub async fn create(
     Json(dto): Json<CreateTaskDto>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     dto.validate().map_err(|e| TasksError::Validation(e.to_string()))?;
-    let task = TaskService::create(user.id, dto, &state.db).await?;
+    let task = TaskService::create(user.id, dto, &state.instance(), &state.db).await?;
     emit(&state, "created", task.task.id, user.id);
     if task.task.status == "done" {
         emit(&state, "completed", task.task.id, user.id);
@@ -143,7 +143,7 @@ pub async fn create_subtask(
         return Err(TasksError::Validation("board_id incohérent avec la tâche parente".into()));
     }
     dto.parent_task_id = Some(id);
-    let task = TaskService::create(user.id, dto, &state.db).await?;
+    let task = TaskService::create(user.id, dto, &state.instance(), &state.db).await?;
     emit(&state, "created", task.task.id, user.id);
     Ok((StatusCode::CREATED, Json(serde_json::json!({ "task": task }))))
 }

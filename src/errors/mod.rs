@@ -22,6 +22,9 @@ pub enum TasksError {
     #[error("Conflit: {0}")]
     Conflict(String),
 
+    #[error("Charge utile trop volumineuse: {0}")]
+    PayloadTooLarge(String),
+
     #[error("RRULE invalide: {0}")]
     InvalidRRule(String),
 
@@ -40,6 +43,7 @@ impl IntoResponse for TasksError {
             TasksError::NotFound(_)     => (StatusCode::NOT_FOUND,              "NOT_FOUND",       self.to_string()),
             TasksError::Validation(_)   => (StatusCode::UNPROCESSABLE_ENTITY,   "VALIDATION",      self.to_string()),
             TasksError::Conflict(_)     => (StatusCode::CONFLICT,               "CONFLICT",        self.to_string()),
+            TasksError::PayloadTooLarge(_) => (StatusCode::PAYLOAD_TOO_LARGE,   "PAYLOAD_TOO_LARGE", self.to_string()),
             TasksError::InvalidRRule(_) => (StatusCode::UNPROCESSABLE_ENTITY,   "INVALID_RRULE",   self.to_string()),
             TasksError::Database(e) => {
                 tracing::error!(error = %e, "Database error");

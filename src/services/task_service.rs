@@ -195,8 +195,31 @@ impl TaskService {
         Ok(TaskWithMeta { task, labels, assignees, subtask_count, comment_count })
     }
 
-    pub async fn create(user_id: Uuid, dto: CreateTaskDto, db: &PgPool) -> Result<TaskWithMeta> {
+    pub async fn create(
+        user_id: Uuid,
+        dto: CreateTaskDto,
+        instance: &crate::config::InstanceConfig,
+        db: &PgPool,
+    ) -> Result<TaskWithMeta> {
         BoardService::assert_access(dto.board_id, user_id, "write", db).await?;
+
+        // Ceiling on the size of one board, applied before anything is written.
+        // Subtasks count too: they are tasks, they hold the same data, and a
+        // ceiling a client can walk around is not a ceiling.
+        if instance.max_tasks_per_board > 0 {
+            let held: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM tasks.tasks WHERE board_id = $1",
+            )
+            .bind(dto.board_id)
+            .fetch_one(db)
+            .await?;
+            if held >= instance.max_tasks_per_board {
+                return Err(TasksError::Validation(format!(
+                    "Nombre maximal de tâches atteint pour ce tableau ({})",
+                    instance.max_tasks_per_board
+                )));
+            }
+        }
 
         // Cohérence stack ↔ board.
         if let Some(stack_id) = dto.stack_id {
