@@ -1,9 +1,8 @@
+import { openImagePicker, prompt } from '@kubuno/sdk'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { openImagePicker } from '@kubuno/sdk'
 import { useTranslation } from 'react-i18next'
 import { Bold, Italic, Link2, Image as ImageIcon, Smile, Send } from 'lucide-react'
-import { prompt } from '@kubuno/sdk'
 
 const EMOJIS = ['😀', '😅', '😂', '🙂', '😉', '😍', '🤔', '👍', '👎', '🙏', '👏', '🔥', '🎉', '✅', '❌', '⚠️', '💡', '❤️', '🚀', '👀', '📌', '⏰', '📎', '🐛']
 

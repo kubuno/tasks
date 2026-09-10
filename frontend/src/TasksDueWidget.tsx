@@ -1,7 +1,7 @@
+import { DashboardWidget } from '@kubuno/sdk'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { CheckSquare } from 'lucide-react'
-import { DashboardWidget } from '@kubuno/sdk'
 import { tasksApi } from './api'
 import { isOverdue, shortDateTime, priorityLevel, PRIORITY_COLORS } from './helpers'
 

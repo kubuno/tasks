@@ -31,7 +31,7 @@ export function isOverdue(due: string | null, status: TaskStatus): boolean {
   return new Date(due).getTime() < Date.now()
 }
 
-/** Date courte locale-agnostique (le composant peut surcharger avec date-fns). */
+/** Date courte locale-agnostique (a component may override with the shared Intl helpers). */
 export function shortDate(iso: string | null): string {
   if (!iso) return ''
   const d = new Date(iso)

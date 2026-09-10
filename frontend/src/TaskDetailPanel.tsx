@@ -1,3 +1,4 @@
+import { useConfirm, useAuthStore } from '@kubuno/sdk'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -5,12 +6,10 @@ import { Trash2, Plus, Tag, CheckCircle2, Circle, CheckSquare, Check, X } from '
 import { Dropdown, DatePicker, Spinner, Button, Tabs, Input, Textarea, RangeSlider } from '@ui'
 import { FloatingWindow } from '@ui'
 import { ConfirmDialog } from '@ui'
-import { useConfirm } from '@kubuno/sdk'
 import { tasksApi, type Task, type TaskStatus } from './api'
 import { useTasksStore } from './store'
 import UserPicker, { UserAvatar } from './UserPicker'
 import CommentThread from './CommentThread'
-import { useAuthStore } from '@kubuno/sdk'
 
 const STATUS_VALUES: TaskStatus[] = ['open', 'in_progress', 'done', 'cancelled']
 const SWATCHES = ['#1a73e8', '#1e8e3e', '#d93025', '#f9ab00', '#9334e6', '#e8710a', '#12b5cb', '#5f6368']
@@ -264,7 +263,7 @@ export default function TaskDetailPanel() {
                   type="button"
                   onClick={() => updateMut.mutate({ clear_color: true })}
                   title={t('color_default')}
-                  className="h-7 px-2 rounded-full flex items-center gap-1.5 border text-xs transition"
+                  className="h-7 px-2 rounded-md flex items-center gap-1.5 border text-xs transition"
                   style={!task.color
                     ? { borderColor: 'var(--color-primary, #1a73e8)', color: '#1a73e8' }
                     : { borderColor: 'var(--color-border, #dadce0)' }}
@@ -296,7 +295,7 @@ export default function TaskDetailPanel() {
                     <button
                       key={l.id}
                       onClick={() => toggleLabelMut.mutate({ labelId: l.id, on: !on })}
-                      className={`text-xs px-2 py-0.5 rounded-full border transition ${on ? 'text-white border-transparent' : 'text-text-secondary border-border'}`}
+                      className={`text-xs px-2 py-0.5 rounded-md border transition ${on ? 'text-white border-transparent' : 'text-text-secondary border-border'}`}
                       style={on ? { backgroundColor: l.color } : undefined}
                     >
                       {l.title}

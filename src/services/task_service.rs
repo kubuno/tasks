@@ -123,6 +123,9 @@ impl TaskService {
             Some("overdue") => {
                 qb.push(" AND t.due_at < NOW() AND t.status NOT IN ('done','cancelled')");
             }
+            Some("starred") => {
+                qb.push(" AND t.starred AND t.status NOT IN ('done','cancelled')");
+            }
             Some("important") => {
                 qb.push(" AND t.priority >= 6 AND t.status NOT IN ('done','cancelled')");
             }
@@ -248,6 +251,9 @@ impl TaskService {
         let all_day   = dto.all_day.unwrap_or(false);
         let reminders = dto.reminders.unwrap_or_else(|| serde_json::json!([]));
         let uid       = new_uid();
+        // The star carries its own timestamp so lists can order by "recently starred".
+        let starred    = dto.starred.unwrap_or(false);
+        let starred_at = if starred { Some(Utc::now()) } else { None };
 
         // Position en fin de colonne/board.
         let position: f64 = sqlx::query_scalar::<_, Option<f64>>(
@@ -267,8 +273,9 @@ impl TaskService {
             INSERT INTO tasks.tasks
                 (id, board_id, stack_id, parent_task_id, owner_id, title, description,
                  status, priority, percent_complete, due_at, start_at, completed_at,
-                 all_day, color, rrule, reminders, ical_uid, position, linked_event_id)
-            VALUES (COALESCE($20, uuid_generate_v4()),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                 all_day, color, rrule, reminders, ical_uid, position, linked_event_id,
+                 starred, starred_at)
+            VALUES (COALESCE($20, uuid_generate_v4()),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$21,$22)
             RETURNING *
             "#,
         )
@@ -292,6 +299,8 @@ impl TaskService {
         .bind(position)
         .bind(dto.linked_event_id)
         .bind(dto.id)
+        .bind(starred)
+        .bind(starred_at)
         .fetch_one(&mut *tx)
         .await?;
 
@@ -346,6 +355,15 @@ impl TaskService {
             (dto.percent_complete.unwrap_or(cur.percent_complete), None)
         };
 
+        // Only a real transition moves the timestamp: re-saving a task that was
+        // already starred must not reshuffle the "recently starred" ordering.
+        let starred = dto.starred.unwrap_or(cur.starred);
+        let starred_at = match (cur.starred, starred) {
+            (false, true) => Some(Utc::now()),
+            (_, false)    => None,
+            _             => cur.starred_at,
+        };
+
         let linked_event_id = if dto.clear_linked_event {
             None
         } else {
@@ -361,6 +379,7 @@ impl TaskService {
                 status = $6, priority = $7, percent_complete = $8, due_at = $9,
                 start_at = $10, completed_at = $11, all_day = $12, rrule = $13,
                 reminders = $14, linked_event_id = $15, color = $16,
+                starred = $17, starred_at = $18,
                 sequence = sequence + 1, etag = md5(random()::text)
             WHERE id = $1
             RETURNING *
@@ -382,6 +401,8 @@ impl TaskService {
         .bind(&reminders)
         .bind(linked_event_id)
         .bind(&color)
+        .bind(starred)
+        .bind(starred_at)
         .fetch_one(&mut *tx)
         .await?;
 

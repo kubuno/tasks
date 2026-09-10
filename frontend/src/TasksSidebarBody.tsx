@@ -1,141 +1,181 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { SidebarNavItem, prompt, navigate } from '@kubuno/sdk'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  CalendarClock, CalendarDays, AlertTriangle, Star, CheckCircle2, ListTodo, Columns3, Inbox,
-  MoreVertical, Pencil, Trash2,
+  CalendarClock, CalendarDays, AlertTriangle, Star, CheckCircle2, ListTodo,
+  ChevronDown, ChevronUp, Plus, Columns3,
 } from 'lucide-react'
-import { MenuDropdown, type MenuItem } from '@ui'
-import { ConfirmDialog } from '@ui'
-import { useConfirm } from '@kubuno/sdk'
-import { SidebarNavItem } from '@kubuno/sdk'
-import { tasksApi, type Board, type Collection } from './api'
+import { Checkbox } from '@ui'
+import { tasksApi, type Collection } from './api'
 import { useTasksStore } from './store'
+import { useListPrefs } from './listPrefs'
 import { hashTo, fromHash } from './hashRoute'
-import BoardEditWindow from './BoardEditWindow'
 
 // Every clickable element of this sidebar is an <a> carrying a real href.
-// Collections have no route of their own, so they are addressable through the
-// URL hash (`/tasks/#collection/<key>`, cf. hashRoute.ts) and the selection is
-// read back from `useLocation().hash` — direct links and Back therefore work.
-const COLLECTIONS: { key: Collection; icon: React.ReactNode }[] = [
+// Views have no route of their own, so they are addressable through the URL
+// hash (`/tasks/#collection/<key>`, cf. hashRoute.ts) and the selection is read
+// back from `useLocation().hash` — direct links and Back therefore work.
+const VIEWS: { key: Collection; icon: React.ReactNode }[] = [
+  { key: 'all',     icon: <CheckCircle2 size={18} /> },
+  { key: 'starred', icon: <Star size={18} /> },
+]
+
+/** Date-driven views. Secondary to the lists, so they fold away by default. */
+const FILTERS: { key: Collection; icon: React.ReactNode }[] = [
   { key: 'today',     icon: <CalendarDays size={18} /> },
   { key: 'upcoming',  icon: <CalendarClock size={18} /> },
   { key: 'overdue',   icon: <AlertTriangle size={18} /> },
-  { key: 'important', icon: <Star size={18} /> },
+  { key: 'important', icon: <ListTodo size={18} /> },
   { key: 'completed', icon: <CheckCircle2 size={18} /> },
-  { key: 'all',       icon: <ListTodo size={18} /> },
 ]
+
+const ALL_KEYS = [...VIEWS, ...FILTERS].map(v => v.key)
 
 export default function TasksSidebarBody({ collapsed = false }: { collapsed?: boolean }) {
   const { t } = useTranslation('tasks')
-  const navigate = useNavigate()
   const qc = useQueryClient()
   const params = useParams()
   const { hash } = useLocation()
   const activeBoardId = params.id ?? null
   const collection = useTasksStore(s => s.collection)
   const setCollection = useTasksStore(s => s.setCollection)
-  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm()
-  const [menu, setMenu] = useState<{ board: Board; pos: { top: number; left: number } } | null>(null)
-  const [editing, setEditing] = useState<Board | null>(null)
+  const { hidden, listsOpen, isHidden, setHidden, setListsOpen } = useListPrefs()
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   const { data: boards = [] } = useQuery({ queryKey: ['tasks-boards'], queryFn: tasksApi.listBoards })
 
-  // The hash drives the collection: opening `/tasks/#collection/today` directly,
-  // or pressing Back after a change, applies it to the store the views read.
+  // One request feeds every counter: the badge next to a list is the number of
+  // tasks left to do in it. Keyed under `tasks-list` so the views that create or
+  // complete a task already invalidate it.
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ['tasks-list', 'sidebar-counts'],
+    queryFn: () => tasksApi.listTasks({}),
+  })
+  const counts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const task of allTasks) {
+      if (task.status === 'done' || task.status === 'cancelled') continue
+      m.set(task.board_id, (m.get(task.board_id) ?? 0) + 1)
+    }
+    return m
+  }, [allTasks])
+
+  // The hash drives the view: opening `/tasks/#collection/starred` directly, or
+  // pressing Back after a change, applies it to the store the views read.
   useEffect(() => {
     const parsed = fromHash(hash)
     if (parsed?.kind !== 'collection') return
-    if (COLLECTIONS.some(c => c.key === parsed.id)) setCollection(parsed.id as Collection)
+    if (ALL_KEYS.includes(parsed.id as Collection)) setCollection(parsed.id as Collection)
   }, [hash, setCollection])
 
-  const removeBoard = async (board: Board) => {
-    if (await confirm({ title: t('delete_board'), message: t('confirm_delete_board'), confirmLabel: t('delete'), variant: 'danger' })) {
-      await tasksApi.deleteBoard(board.id)
-      qc.invalidateQueries({ queryKey: ['tasks-boards'] })
-      if (activeBoardId === board.id) navigate('/tasks')
-    }
+  // A filter chosen from a deep link must not stay hidden behind a folded section.
+  useEffect(() => {
+    if (FILTERS.some(f => f.key === collection)) setFiltersOpen(true)
+  }, [collection])
+
+  const createList = async () => {
+    const title = await prompt({ title: t('new_list'), placeholder: t('list_name'), confirmLabel: t('create_action') })
+    if (!title?.trim()) return
+    const board = await tasksApi.createBoard({ title: title.trim(), board_type: 'list' })
+    qc.invalidateQueries({ queryKey: ['tasks-boards'] })
+    // A brand new list is visible: make sure a stale hidden entry cannot bury it.
+    if (isHidden(board.id)) void setHidden(board.id, false)
+    navigate(hashTo('collection', 'all'))
   }
 
-  const menuItems: MenuItem[] = menu ? [
-    { type: 'action', label: t('edit_board'), icon: <Pencil size={15} />, onClick: () => { const b = menu.board; setMenu(null); setEditing(b) } },
-    ...(menu.board.is_default ? [] : [
-      { type: 'separator' as const },
-      { type: 'action' as const, label: t('delete_board'), icon: <Trash2 size={15} />, onClick: () => { const b = menu.board; setMenu(null); removeBoard(b) } },
-    ]),
-  ] : []
+  const sectionHeader = (label: string, open: boolean, onToggle: () => void) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      className="mt-3 flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left
+                 text-sm font-semibold text-text-secondary hover:bg-surface-1"
+    >
+      {label}
+      {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+    </button>
+  )
 
   return (
     <div className="flex flex-col gap-0.5 px-2 py-2">
-      {COLLECTIONS.map(c => (
+      {VIEWS.map(v => (
         <SidebarNavItem
-          key={c.key}
-          label={t(`collection_${c.key}`)}
-          icon={c.icon}
+          key={v.key}
+          label={t(`view_${v.key}`)}
+          icon={v.icon}
           collapsed={collapsed}
-          active={!activeBoardId && collection === c.key}
-          to={hashTo('collection', c.key)}
+          active={!activeBoardId && collection === v.key}
+          to={hashTo('collection', v.key)}
         />
       ))}
 
       {!collapsed && (
-        <div className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-text-tertiary">
-          {t('boards')}
-        </div>
-      )}
+        <>
+          {sectionHeader(t('lists'), listsOpen, () => void setListsOpen(!listsOpen))}
 
-      {boards.filter(b => !b.is_archived).map(b => (
-        <div
-          key={b.id}
-          className="relative group"
-          onContextMenu={(e) => { e.preventDefault(); setMenu({ board: b, pos: { top: e.clientY, left: e.clientX } }) }}
-        >
-          <SidebarNavItem
-            label={b.is_default ? t('default_board') : b.title}
-            icon={b.is_default
-              ? <Inbox size={18} style={{ color: b.color }} />
-              : <Columns3 size={18} style={{ color: b.color }} />}
-            collapsed={collapsed}
-            to={`/tasks/boards/${b.id}`}
-            active={activeBoardId === b.id}
-          />
-          {/* Menu Modifier/Supprimer (clic gauche sur «…» ou clic droit sur la ligne) */}
-          {!collapsed && (
-            <a
-              href="#"
-              role="button"
-              title={t('edit_board')}
-              aria-label={t('edit_board')}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ board: b, pos: { top: e.clientY, left: e.clientX } }) }}
-              // Enter is handled natively by the anchor; only Space needs wiring.
-              onKeyDown={(e) => {
-                if (e.key === ' ') {
-                  e.preventDefault(); e.stopPropagation()
-                  const r = e.currentTarget.getBoundingClientRect()
-                  setMenu({ board: b, pos: { top: r.bottom, left: r.left } })
-                }
-              }}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100
-                         text-text-tertiary hover:text-text-primary hover:bg-surface-2 z-10
-                         cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <MoreVertical size={15} />
-            </a>
+          {listsOpen && (
+            <div className="flex flex-col">
+              {boards.filter(b => !b.is_archived).map(b => {
+                const n = counts.get(b.id) ?? 0
+                const shown = !hidden.includes(b.id)
+                return (
+                  <div
+                    key={b.id}
+                    className="group flex items-center gap-2 rounded-lg py-1.5 pl-3 pr-2 hover:bg-surface-1"
+                  >
+                    {/* The box says whether this list has a column in the overview. */}
+                    <Checkbox
+                      checked={shown}
+                      onChange={(v) => void setHidden(b.id, !v)}
+                      color={b.color}
+                      label={b.is_default ? t('default_board') : b.title}
+                      className="min-w-0 flex-1"
+                      labelClassName="truncate text-sm text-text-nav"
+                    />
+                    {n > 0 && <span className="flex-shrink-0 text-xs text-text-tertiary">{n}</span>}
+                    {b.board_type === 'kanban' && (
+                      <a
+                        href={`/tasks/boards/${b.id}`}
+                        title={t('open_board')}
+                        aria-label={t('open_board')}
+                        onClick={(e) => { e.preventDefault(); navigate(`/tasks/boards/${b.id}`) }}
+                        className="flex-shrink-0 rounded p-0.5 text-text-tertiary opacity-0
+                                   hover:text-text-primary group-hover:opacity-100 focus-visible:opacity-100"
+                      >
+                        <Columns3 size={15} />
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+
+              <button
+                type="button"
+                onClick={() => void createList()}
+                className="mt-0.5 flex items-center gap-3 rounded-lg py-2 pl-3 pr-2 text-left text-sm
+                           text-text-nav hover:bg-surface-1"
+              >
+                <Plus size={18} className="text-text-secondary" />
+                {t('create_list')}
+              </button>
+            </div>
           )}
-        </div>
-      ))}
 
-      {menu && <MenuDropdown items={menuItems} pos={menu.pos} onClose={() => setMenu(null)} />}
-      {editing && (
-        <BoardEditWindow
-          board={editing}
-          onClose={() => setEditing(null)}
-          onDeleted={() => { if (activeBoardId === editing.id) navigate('/tasks') }}
-        />
+          {sectionHeader(t('filters'), filtersOpen, () => setFiltersOpen(!filtersOpen))}
+          {filtersOpen && FILTERS.map(f => (
+            <SidebarNavItem
+              key={f.key}
+              label={t(`collection_${f.key}`)}
+              icon={f.icon}
+              collapsed={collapsed}
+              active={!activeBoardId && collection === f.key}
+              to={hashTo('collection', f.key)}
+            />
+          ))}
+        </>
       )}
-      {confirmState && <ConfirmDialog {...confirmState} onConfirm={handleConfirm} onCancel={handleCancel} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
+import { useSearchStore } from '@kubuno/sdk'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Dropdown, Button, Input } from '@ui'
-import { useSearchStore } from '@kubuno/sdk'
 import { useTasksStore } from './store'
 import { STATUS_ORDER } from './helpers'
 

@@ -1,3 +1,4 @@
+import { i18n, prompt, navigate } from '@kubuno/sdk'
 /**
  * Items of the shell's "New" button for the tasks module.
  *
@@ -7,20 +8,20 @@
  * component: no hooks here (store via `getState()`, i18n via `i18n.t`,
  * react-query through the captured host client in `queryClient.ts`).
  */
-import { Columns3, CheckSquare } from 'lucide-react'
-import { i18n, prompt, navigate } from '@kubuno/sdk'
+import { ListPlus, CheckSquare } from 'lucide-react'
 import type { MenuItem } from '@ui'
 import { tasksApi } from './api'
 import { useTasksStore } from './store'
 import { invalidateQueries } from './queryClient'
 
-async function createBoard(): Promise<void> {
+async function createList(): Promise<void> {
   const t = (key: string) => i18n.t(`tasks:${key}`)
-  const title = await prompt({ title: t('new_board'), placeholder: t('title'), confirmLabel: t('create') })
+  const title = await prompt({ title: t('new_list'), placeholder: t('list_name'), confirmLabel: t('create_action') })
   if (!title?.trim()) return
-  const board = await tasksApi.createBoard({ title: title.trim() })
+  // A plain list, the default kind; the overview is where it shows up.
+  await tasksApi.createBoard({ title: title.trim(), board_type: 'list' })
   invalidateQueries(['tasks-boards'])
-  navigate(`/tasks/boards/${board.id}`)
+  navigate('/tasks/#collection/all')
 }
 
 async function createTask(): Promise<void> {
@@ -52,15 +53,15 @@ export function newActionItems(): MenuItem[] {
   return [
     {
       type: 'action',
-      label: i18n.t('tasks:new_board'),
-      icon: <Columns3 size={16} />,
-      onClick: () => { void createBoard() },
-    },
-    {
-      type: 'action',
       label: i18n.t('tasks:new_task'),
       icon: <CheckSquare size={16} />,
       onClick: () => { void createTask() },
+    },
+    {
+      type: 'action',
+      label: i18n.t('tasks:new_list'),
+      icon: <ListPlus size={16} />,
+      onClick: () => { void createList() },
     },
   ]
 }

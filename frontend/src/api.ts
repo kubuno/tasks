@@ -55,6 +55,9 @@ export interface Task {
   description: string | null
   status: TaskStatus
   priority: number
+  /** Owner-raised flag feeding the Starred view (independent of `priority`). */
+  starred: boolean
+  starred_at: string | null
   percent_complete: number
   due_at: string | null
   start_at: string | null
@@ -106,6 +109,7 @@ export interface CreateTaskInput {
   description?: string | null
   status?: TaskStatus
   priority?: number
+  starred?: boolean
   percent_complete?: number
   due_at?: string | null
   start_at?: string | null
@@ -130,7 +134,7 @@ export interface UserBrief {
   avatar_url: string | null
 }
 
-export type Collection = 'today' | 'upcoming' | 'overdue' | 'important' | 'completed' | 'all'
+export type Collection = 'today' | 'upcoming' | 'overdue' | 'important' | 'starred' | 'completed' | 'all'
 
 export interface TasksQuery {
   board_id?: string
@@ -166,6 +170,11 @@ export const tasksApi = {
   updateBoard: (id: string, body: Partial<Board>) =>
     apiClient.patch<{ board: Board }>(`/tasks/boards/${id}`, body).then(r => r.data.board),
   deleteBoard: (id: string) => apiClient.delete(`/tasks/boards/${id}`).then(() => undefined),
+  /** Persists a hand-made list order (drag and drop, "move to first position"). */
+  reorderBoards: (orderedIds: string[]) =>
+    Promise.all(orderedIds.map((id, i) =>
+      apiClient.patch<{ board: Board }>(`/tasks/boards/${id}`, { sort_order: i }),
+    )).then(() => undefined),
   shareBoard: (id: string, body: { user_id: string; permission?: string }) =>
     apiClient.post(`/tasks/boards/${id}/share`, body).then(r => r.data),
   unshareBoard: (id: string, uid: string) =>

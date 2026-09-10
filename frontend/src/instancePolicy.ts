@@ -1,3 +1,4 @@
+import { api } from '@kubuno/sdk'
 // What the instance allows, as the module's screens need to know it.
 //
 // The core's `/modules/tasks/config` deliberately hides instance-scoped settings
@@ -8,7 +9,6 @@
 // will refuse.
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@kubuno/sdk'
 
 export interface InstancePolicy {
   /** May a board be shared with other accounts? */

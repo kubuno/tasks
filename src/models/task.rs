@@ -16,6 +16,10 @@ pub struct Task {
     pub description:      Option<String>,
     pub status:           String,
     pub priority:         i16,
+    /// Owner-raised flag feeding the Starred view (distinct from `priority`,
+    /// which carries the iCalendar PRIORITY meaning).
+    pub starred:          bool,
+    pub starred_at:       Option<DateTime<Utc>>,
     pub percent_complete: i16,
     pub due_at:           Option<DateTime<Utc>>,
     pub start_at:         Option<DateTime<Utc>>,
@@ -60,6 +64,7 @@ pub struct CreateTaskDto {
     pub status:          Option<String>,
     #[validate(range(min = 0, max = 9))]
     pub priority:        Option<i16>,
+    pub starred:         Option<bool>,
     #[validate(range(min = 0, max = 100))]
     pub percent_complete: Option<i16>,
     pub due_at:          Option<DateTime<Utc>>,
@@ -84,6 +89,7 @@ pub struct UpdateTaskDto {
     pub status:          Option<String>,
     #[validate(range(min = 0, max = 9))]
     pub priority:        Option<i16>,
+    pub starred:         Option<bool>,
     #[validate(range(min = 0, max = 100))]
     pub percent_complete: Option<i16>,
     pub due_at:          Option<DateTime<Utc>>,

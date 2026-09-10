@@ -9,22 +9,18 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
-
 ### Changed
 
 
 
-- **The RPM package now names the same maintainer as the Debian one.** Its
-  changelog entry read `Kubuno Contributors <contact@kubuno.io>`, an address on
-  a domain the project does not use; it now reads
-  `Martinien OLINGA <kubuno@martinienolinga.com>`, matching the `.deb`. Nothing
-  about what the package installs changes.
-
-- **The package maintainer address moved to the project's own domain.** The
-  Debian package's `Maintainer` field now reads
-  `Martinien OLINGA <kubuno@martinienolinga.com>`. Nothing about what the
-  package installs changes.
-
+- **Dates are formatted by the platform now, not by a library.** `date-fns` is
+  gone from this module: the shared SDK exposes helpers built on `Intl`, which is
+  localised for every language we ship and needs no locale bundle loaded. Call
+  sites say what a date is FOR — `formatDate(d, 'date')` — and the platform
+  decides how to write it, so a reader in Japanese no longer gets a French
+  layout. Machine formats (keys, `<input type="date">` values) go through
+  `toISODate` and friends, built from local calendar fields so the day cannot
+  shift near midnight.
 - **The README now opens with the module's logo.** The public README on
   GitHub now shows the module's designer logo (the same PNG shown as the
   browser tab icon and in the applications menu) at the top of the page — the
@@ -32,9 +28,38 @@ number at release time, and CI publishes that section as the GitHub Release note
   platform. The image ships in-repo, under `.github/logo.png`, so it renders
   even when the repo is browsed offline.
 
+- **New Tasks logo** — a green hexagon with a white checkmark inside a circle,
+  used as the browser-tab icon and in the applications menu. It replaces the
+  generic check-square icon and is raster (PNG) designer artwork; the Tasks
+  tab now has an icon of its own.
 
 ### Added
 
+- **A lists overview, the new home of Tasks.** Opening Tasks now shows every
+  list side by side, each in its own card: a heading, an "Add a task" row, the
+  tasks themselves, and a foldable "Completed" section. Overdue tasks rise to
+  the top of a hand-ordered list under a "Past" heading. Columns can be
+  reordered by dragging the grab handle above a card, and a task can be dragged
+  from one list to another. Each list card carries a menu offering how to sort
+  it (my order, date created, date, starred recently, title), rename, delete,
+  move to first position, hide, print, delete completed tasks, and clean up old
+  ones; the sort and the folded state are remembered per person, so two people
+  sharing a list can each order it their own way.
+- **The sidebar now manages the lists.** A "Lists" section shows each list with
+  a checkbox that adds or removes its column from the overview (it hides the
+  column, it never touches the data), a count of the tasks left to do, and a
+  shortcut to open a board-style list in its columns. "Create new list" adds
+  one; the date-driven views (today, upcoming, overdue, important, completed)
+  move into a foldable "Filters" section below.
+- **Starred tasks.** A task can be starred from its row or its menu, and the new
+  "Starred" view gathers the starred tasks of every list into one wide card,
+  split into "recently" and "over a month ago", each row showing which list it
+  came from. Starring is independent of priority, so the two no longer collide.
+- **An in-place task composer.** "Add a task" opens an editor right where the
+  task will live: a title, a details line, quick "Today"/"Tomorrow" chips, a
+  full date-and-time picker, and a repeat control. It stays open so several
+  tasks can be typed one after another, and a half-typed task is saved rather
+  than lost when the editor closes.
 - **A "Contains the words" field in the search filter panel, synced with the
   search bar both ways.** Opening the panel pre-fills the field with the bar's
   current text, and editing it rewrites the bar's text live (running the
@@ -43,9 +68,65 @@ number at release time, and CI publishes that section as the GitHub Release note
   representation, so it intentionally stays panel-only. "Reset" now also
   clears the search bar's text.
 
+
+
+
+### Fixed
+
+
+- **A withdrawn dependency is no longer used.** A crate deep in the tree
+  (`spin` 0.9.8, pulled in through the HTTP stack) was yanked by its authors.
+  No vulnerability was announced, but a withdrawn crate has no business in a
+  release; the lockfile now takes the version that replaced it.
+- **The package could not be built where `zip` is absent.** The Windows job of
+  the continuous integration has no `zip`, so the Windows package was simply lost
+  the first time it was attempted — a script failure, not a build failure. The
+  builder now falls back to 7-Zip, then to PowerShell.
+### Added
+
+- **This module now ships a `.kbpkg`** — the single package format a Kubuno
+  server installs by itself, the same file on Linux, Windows and macOS. It
+  carries the same binary, interface and manifest as the system packages,
+  arranged the way the server expects to find a module on disk, plus a
+  `SHA256SUMS` so a copy carried offline can be checked without the catalogue.
+  Nothing changes for existing installations: the `.deb`, `.rpm`, `.exe` and
+  `.pkg` are still published, and a catalogue that sees both simply prefers the
+  new one. It is also the only format the server can unpack without an external
+  tool, which is what makes one-click installation possible away from
+  Debian-like systems.
+### Fixed
+
+- **A built package could be thrown away instead of published.** The job that
+  attaches a package to the release waited ten minutes for another workflow to
+  create that release, then gave up with "release never appeared — build.yml
+  likely failed". The diagnosis was wrong: on a repository whose `.deb` takes
+  longer than ten minutes to build, the release simply did not exist yet, and a
+  package that had built perfectly was discarded. Four modules reached v0.1.6
+  with packages missing for some systems because of it. The job now creates the
+  release itself when it is missing, so it no longer depends on another workflow
+  finishing first.
+### Added
+
+- **Security policy and CI quality gate.** A `SECURITY.md` documents how to
+  report vulnerabilities, and a CI workflow enforces `clippy -D warnings`, a
+  dependency-vulnerability audit (`cargo audit`) and the frontend typecheck/tests.
+
+### Security
+
+- **Tasks now authenticates proxied requests from a signed token instead of trusting plain headers.**
+  Requests must carry a valid `X-Kubuno-Auth` token minted by the core with this module's internal
+  secret (see `kubuno-modauth`), rather than reading `X-Kubuno-User-*` headers at face value.
+
 ## [0.1.6] - 2026-08-19
 
 ### Changed
+
+- **Pill-shaped buttons are gone from the interface.** Filter chips, view
+  segments, tab selectors and action buttons that were drawn as pills now use the
+  same 4 px corner radius as every other button — the shape set them apart for no
+  reason other than habit. Round buttons that hold a lone icon, avatars, status
+  dots and non-clickable badges keep their shape: a circle around a single glyph
+  is not a pill.
 
 - Theme tokens: two colours for navigation labels (`--color-text-nav`,
   `--color-text-nav-active`). Every module carries the same token sheet, so the

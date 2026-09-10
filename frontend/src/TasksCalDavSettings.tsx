@@ -1,8 +1,8 @@
+import { useAuthStore } from '@kubuno/sdk'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Copy, Check, Columns3 } from 'lucide-react'
-import { useAuthStore } from '@kubuno/sdk'
 import { tasksApi } from './api'
 
 function CopyButton({ text }: { text: string }) {

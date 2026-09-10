@@ -1,3 +1,4 @@
+import { useConfirm, prompt } from '@kubuno/sdk'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -5,8 +6,6 @@ import { ChevronRight, ChevronDown, Plus, CheckCircle2, Circle } from 'lucide-re
 import { Spinner, MenuDropdown, type MenuItem, Input, Button } from '@ui'
 import { useSwipeActions } from './useSwipe'
 import { ConfirmDialog } from '@ui'
-import { useConfirm } from '@kubuno/sdk'
-import { prompt } from '@kubuno/sdk'
 import { tasksApi, type Task, type Collection } from './api'
 import { useTasksStore } from './store'
 import { useTaskCreateStore } from './taskCreateStore'

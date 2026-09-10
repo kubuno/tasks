@@ -1,18 +1,6 @@
+import { ExtensionRegistry, CALENDAR_OVERLAY, type CalendarOverlayItem, type CalendarOverlayProvider, RouteRegistry, WidgetRegistry, WaffleAppRegistry, ModuleSettingsRegistry, ModuleServiceRegistry, NotificationRegistry, SlotRegistry, useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore, useAuthStore, api, i18n, SDK_VERSION, toDate, toISODate, FaviconRegistry } from '@kubuno/sdk'
 /** Bundle MODULE tasks — chargé à l'exécution (cf. vite.module.config). */
 import { lazy } from 'react'
-import { format, parseISO } from 'date-fns'
-import {
-  ExtensionRegistry,
-  CALENDAR_OVERLAY, type CalendarOverlayItem, type CalendarOverlayProvider,
-  RouteRegistry, WidgetRegistry, WaffleAppRegistry,
-  ModuleSettingsRegistry,
-  ModuleServiceRegistry,
-  NotificationRegistry,
-  SlotRegistry,
-  useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore,
-  useAuthStore, api, i18n,
-  SDK_VERSION,
-} from '@kubuno/sdk'
 
 // Per-user preference: should the calendar overlay include completed tasks?
 // Stored in the module's own bag (core.users.preferences.tasks). Read fresh each
@@ -28,12 +16,12 @@ async function setShowCompletedInCalendar(value: boolean): Promise<void> {
     '/me', { preferences: { tasks: { ...current, show_completed_in_calendar: value } } })
   if (data?.user) useAuthStore.getState().updateUser({ preferences: data.user.preferences })
 }
-import { CheckSquare } from 'lucide-react'
 import './index.css'
 import './i18n'
 import { tasksApi } from './api'
 import { useTasksStore } from './store'
 import { newActionItems } from './newActions'
+import TasksLogo from './TasksLogo'
 import TasksSidebarBody from './TasksSidebarBody'
 import TasksToolbar from './TasksToolbar'
 import TasksMiniPanel from './TasksMiniPanel'
@@ -65,8 +53,11 @@ export function register() {
     Component: TasksDataCard,
   })
 
+  // Tasks has its own logo: the tab shows it under /tasks.
+  FaviconRegistry.register('tasks', '/tasks-logo.png')
+
   WaffleAppRegistry.register('tasks', 'Tasks', [
-    { id: 'tasks', label: 'Tasks', Icon: CheckSquare, path: '/tasks' },
+    { id: 'tasks', label: 'Tasks', Icon: TasksLogo, path: '/tasks' },
   ])
 
   // The header gear button opens the per-user Tasks settings while in /tasks
@@ -122,7 +113,7 @@ export function register() {
 
   useRightPanelStore.getState().registerEntry({
     moduleId:       'tasks',
-    icon:           CheckSquare,
+    icon:           TasksLogo,
     label:          'Tasks',
     panelComponent: TasksMiniPanel,
     openPath:       '/tasks',
@@ -153,7 +144,7 @@ export function register() {
           .filter(t => showDone || t.status !== 'done')
           .map<CalendarOverlayItem>(t => ({
             id:    `task-${t.id}`,
-            date:  format(parseISO(t.due_at as string), 'yyyy-MM-dd'),
+            date:  toISODate(toDate(t.due_at as string)),
             title: t.title,
             color: t.color ?? boardColor.get(t.board_id) ?? '#1a73e8',
             done:  t.status === 'done',
