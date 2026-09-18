@@ -1,9 +1,10 @@
 import { useConfirm, useAuthStore } from '@kubuno/sdk'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Trash2, Plus, Tag, CheckCircle2, Circle, CheckSquare, Check, X } from 'lucide-react'
 import { Dropdown, DatePicker, Spinner, Button, Tabs, Input, Textarea, RangeSlider } from '@ui'
+import { LabelField, useLabelOptions, useTaskLabels, saveTaskLabels } from './labels'
 import { FloatingWindow } from '@ui'
 import { ConfirmDialog } from '@ui'
 import { tasksApi, type Task, type TaskStatus } from './api'
@@ -133,9 +134,29 @@ export default function TaskDetailPanel() {
     onSuccess: () => { subtasksQ.refetch(); invalidate() },
   })
 
+  // ⚠️ Above the early return below: these are hooks, and a hook that only runs
+  // on some renders is React error #310 — the panel went blank the first time
+  // this block sat under it.
+  // The instance's labels, alongside the board's. Written straight away rather
+  // than on a save button: this panel edits in place, like every other field
+  // here, and a label that needed a separate save would be the odd one out.
+  const coreLabelsQ = useLabelOptions()
+  const taskLabelsQ = useTaskLabels(task)
+  const [coreLabelIds, setCoreLabelIds] = useState<string[]>([])
+  const coreLoadedFor = useRef<string | null>(null)
+  useEffect(() => {
+    // Re-adopted when the panel moves to ANOTHER task, not on every answer:
+    // otherwise a choice made while the request was in flight is undone.
+    if (task && taskLabelsQ.data && coreLoadedFor.current !== task.id) {
+      coreLoadedFor.current = task.id
+      setCoreLabelIds(taskLabelsQ.data)
+    }
+  }, [task, taskLabelsQ.data])
+
   if (!taskId) return null
 
   const activeLabelIds = new Set((task?.labels ?? []).map(l => l.id))
+
 
   return (
     <>
@@ -285,9 +306,9 @@ export default function TaskDetailPanel() {
               </div>
             </div>
 
-            {/* Labels */}
+            {/* Labels — the BOARD's, a vocabulary shared by whoever works on it. */}
             <div>
-              <label className="block text-xs text-text-tertiary mb-1 flex items-center gap-1"><Tag size={12} />{t('labels')}</label>
+              <label className="block text-xs text-text-tertiary mb-1 flex items-center gap-1"><Tag size={12} />{t('board_labels', { defaultValue: 'Étiquettes du tableau' })}</label>
               <div className="flex flex-wrap gap-1.5">
                 {(labelsQ.data ?? []).map(l => {
                   const on = activeLabelIds.has(l.id)
@@ -306,6 +327,20 @@ export default function TaskDetailPanel() {
                   <span className="text-xs text-text-tertiary">{t('no_labels')}</span>
                 )}
               </div>
+            </div>
+
+            {/* Labels — the INSTANCE's, the ones that also go on a file, a note
+                or an event. A different vocabulary from the board's, so it gets
+                its own line rather than being mixed into it. */}
+            <div>
+              <label className="block text-xs text-text-tertiary mb-1 flex items-center gap-1"><Tag size={12} />{t('kubuno_labels', { defaultValue: 'Étiquettes Kubuno' })}</label>
+              <LabelField
+                options={(coreLabelsQ.data ?? []).map(l => ({ id: l.id, name: l.name, color: l.color }))}
+                value={coreLabelIds}
+                onChange={ids => { setCoreLabelIds(ids); if (task) void saveTaskLabels(task, ids).catch(() => {}) }}
+                placeholder={t('add_labels', { defaultValue: 'Ajouter des étiquettes' })}
+                emptyHint={t('labels_none_yet', { defaultValue: 'Aucune étiquette. Créez-en depuis la page Étiquettes.' })}
+                searchPlaceholder={t('search', { defaultValue: 'Rechercher' })} />
             </div>
 
             {/* Assignés (l'attribution partage naturellement le board) */}
