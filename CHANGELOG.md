@@ -9,7 +9,27 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
-### Security
+### Changed
+
+- **The module now runs on PostgreSQL, MySQL/MariaDB or SQLite.** The engine is
+  a configuration choice (`database.engine`), read when the module starts; the
+  same build talks to whichever the administrator picked. Nothing changes for an
+  existing PostgreSQL instance — its data and its already-applied migrations are
+  untouched — while a new instance can be stood up on MySQL/MariaDB or on a
+  single SQLite file with no separate database server. Boards, columns, tasks,
+  sub-tasks, labels, comments, attachments, reminders, retention, the CalDAV
+  VTODO endpoint, iCalendar import/export and the local-first delta sync all
+  behave identically on the three engines.
+
+### Fixed
+
+- **Local-first sync keeps working on every write path.** The change journal
+  (the monotonic version each board and task carries, and the tombstone left
+  when one is deleted) used to live in database triggers that only PostgreSQL
+  has. It is now driven by the module itself at each write, so a sync client
+  sees the same stream of changes whichever engine backs the instance —
+  including bulk paths a trigger used to cover silently, such as a completed-task
+  retention purge or the cascade when a whole board is deleted.
 
 - **Database driver updated past an unfixable advisory.** The previous line
   pulled in an RSA implementation vulnerable to a timing side-channel

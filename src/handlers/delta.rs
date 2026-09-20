@@ -1,13 +1,19 @@
-//! Sync deltas for the local-first pull (boards / tasks) — same contract as the
-//! office sub-modules: owner-scoped changes past `cursor` (monotonic change_seq),
-//! live rows + tombstones, ordered, paginated. `kind ∈ modified | deleted`.
-//! Board changes carry stacks/labels/board_comments inline; task changes carry
-//! label ids, assignee ids and comments inline.
+//! Sync deltas for the local-first pull (boards / tasks): owner-scoped changes
+//! past `cursor` (monotonic change_seq), live rows + tombstones, ordered,
+//! paginated. `kind ∈ modified | deleted`. Board changes carry stacks / labels /
+//! board_comments inline; task changes carry label ids, assignee ids and
+//! comments inline.
+//!
+//! The change feed comes from `kubuno_db::journal::changes_since` (the portable
+//! `live UNION ALL tombstones` the module used to build by hand); the live rows
+//! are then fetched by id with `DbQueryBuilder::push_in`, which renders the
+//! `IN (...)` list — and `IN (NULL)` for an empty page — on every engine.
 
 use axum::{
     extract::{Query, State},
     Extension, Json,
 };
+use kubuno_db::{journal::Change, DbQueryBuilder};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -16,6 +22,7 @@ use crate::{
     middleware::TasksUser,
     models::{board::Board, comment::{BoardComment, Comment}, label::Label, stack::Stack, task::Task},
     state::AppState,
+    sync,
 };
 
 #[derive(serde::Deserialize)]
@@ -25,31 +32,27 @@ pub struct DeltaQuery {
     limit: Option<i64>,
 }
 
-async fn union_rows(
+/// `SELECT * FROM <table> WHERE <key> IN (<ids>) [ORDER BY <order>]`, built so
+/// the `IN` list (or `IN (NULL)` when empty) is spelled for the pool's engine.
+async fn select_in<T: kubuno_db::FromAnyRow>(
     state: &AppState,
-    user: Uuid,
-    live: &str,
-    tomb: &str,
-    cursor: i64,
-    limit: i64,
-) -> Result<Vec<(Uuid, i64, String)>> {
-    // Audited: `live` and `tomb` are table names supplied by this module's own
-    // call sites as literals — never by a request — and every value is bound.
-    let rows: Vec<(Uuid, i64, String)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
-        r#"SELECT id, change_seq, 'live'::text AS src FROM {live}
-               WHERE owner_id = $1 AND change_seq > $2
-           UNION ALL
-           SELECT id, change_seq, 'tomb'::text AS src FROM {tomb}
-               WHERE owner_id = $1 AND change_seq > $2
-           ORDER BY change_seq
-           LIMIT $3"#
-    )))
-    .bind(user)
-    .bind(cursor)
-    .bind(limit)
-    .fetch_all(&state.db)
-    .await?;
-    Ok(rows)
+    select: &str,
+    key: &str,
+    ids: &[Uuid],
+    order: &'static str,
+) -> Result<Vec<T>> {
+    let mut qb = DbQueryBuilder::new(state.db.backend(), select);
+    qb.push(" WHERE ").push(key).push_in(ids.iter().copied());
+    if !order.is_empty() {
+        qb.push(order);
+    }
+    Ok(qb.fetch_all_as::<T>(&state.db).await?)
+}
+
+fn cursor_and_more(changes: &[Change], prev: i64, limit: i64) -> (i64, bool) {
+    let has_more = changes.len() as i64 == limit;
+    let new_cursor = changes.last().map(|c| c.change_seq).unwrap_or(prev);
+    (new_cursor, has_more)
 }
 
 /// GET /boards/delta
@@ -59,47 +62,27 @@ pub async fn boards_delta(
     Query(q): Query<DeltaQuery>,
 ) -> Result<Json<Value>> {
     let limit = q.limit.unwrap_or(200).clamp(1, 500);
-    let rows = union_rows(&state, user.id, "tasks.boards", "tasks.board_tombstones", q.cursor, limit).await?;
-    let has_more = rows.len() as i64 == limit;
-    let new_cursor = rows.last().map(|r| r.1).unwrap_or(q.cursor);
-    let live_ids: Vec<Uuid> = rows.iter().filter(|r| r.2 == "live").map(|r| r.0).collect();
+    let changes = kubuno_db::journal::changes_since(
+        &state.db, sync::BOARDS_TABLE, sync::BOARD_TOMBSTONES, user.id, q.cursor, limit,
+    )
+    .await?;
+    let (new_cursor, has_more) = cursor_and_more(&changes, q.cursor, limit);
+    let live_ids: Vec<Uuid> = changes.iter().filter(|c| !c.deleted).map(|c| c.id).collect();
 
-    let boards: Vec<Board> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, Board>("SELECT * FROM tasks.boards WHERE id = ANY($1)")
-            .bind(&live_ids)
-            .fetch_all(&state.db)
-            .await?
-    };
-    let stacks: Vec<Stack> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, Stack>(
-            "SELECT * FROM tasks.stacks WHERE board_id = ANY($1) ORDER BY sort_order, created_at",
-        )
-        .bind(&live_ids)
-        .fetch_all(&state.db)
-        .await?
-    };
-    let labels: Vec<Label> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, Label>("SELECT * FROM tasks.labels WHERE board_id = ANY($1) ORDER BY title")
-            .bind(&live_ids)
-            .fetch_all(&state.db)
-            .await?
-    };
-    let bcomments: Vec<BoardComment> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, BoardComment>(
-            "SELECT * FROM tasks.board_comments WHERE board_id = ANY($1) ORDER BY created_at",
-        )
-        .bind(&live_ids)
-        .fetch_all(&state.db)
-        .await?
-    };
+    let boards: Vec<Board> =
+        select_in(&state, "SELECT * FROM tasks.boards", "id", &live_ids, "").await?;
+    let stacks: Vec<Stack> = select_in(
+        &state, "SELECT * FROM tasks.stacks", "board_id", &live_ids, " ORDER BY sort_order, created_at",
+    )
+    .await?;
+    let labels: Vec<Label> = select_in(
+        &state, "SELECT * FROM tasks.labels", "board_id", &live_ids, " ORDER BY title",
+    )
+    .await?;
+    let bcomments: Vec<BoardComment> = select_in(
+        &state, "SELECT * FROM tasks.board_comments", "board_id", &live_ids, " ORDER BY created_at",
+    )
+    .await?;
 
     let mut stack_map: std::collections::HashMap<Uuid, Vec<&Stack>> = Default::default();
     for s in &stacks {
@@ -118,23 +101,23 @@ pub async fn boards_delta(
     let empty_s: Vec<&Stack> = Vec::new();
     let empty_l: Vec<&Label> = Vec::new();
     let empty_c: Vec<&BoardComment> = Vec::new();
-    let mut changes = Vec::with_capacity(rows.len());
-    for (id, seq, src) in &rows {
-        if src == "tomb" {
-            changes.push(json!({ "uuid": id, "kind": "deleted", "change_seq": seq }));
-        } else if let Some(b) = board_map.get(id) {
-            changes.push(json!({
-                "uuid": id,
+    let mut out = Vec::with_capacity(changes.len());
+    for c in &changes {
+        if c.deleted {
+            out.push(json!({ "uuid": c.id, "kind": "deleted", "change_seq": c.change_seq }));
+        } else if let Some(b) = board_map.get(&c.id) {
+            out.push(json!({
+                "uuid": c.id,
                 "kind": "modified",
-                "change_seq": seq,
+                "change_seq": c.change_seq,
                 "board": b,
-                "stacks": stack_map.get(id).unwrap_or(&empty_s),
-                "labels": label_map.get(id).unwrap_or(&empty_l),
-                "board_comments": bc_map.get(id).unwrap_or(&empty_c),
+                "stacks": stack_map.get(&c.id).unwrap_or(&empty_s),
+                "labels": label_map.get(&c.id).unwrap_or(&empty_l),
+                "board_comments": bc_map.get(&c.id).unwrap_or(&empty_c),
             }));
         }
     }
-    Ok(Json(json!({ "changes": changes, "cursor": new_cursor, "has_more": has_more })))
+    Ok(Json(json!({ "changes": out, "cursor": new_cursor, "has_more": has_more })))
 }
 
 /// GET /tasks/delta
@@ -144,45 +127,28 @@ pub async fn tasks_delta(
     Query(q): Query<DeltaQuery>,
 ) -> Result<Json<Value>> {
     let limit = q.limit.unwrap_or(200).clamp(1, 500);
-    let rows = union_rows(&state, user.id, "tasks.tasks", "tasks.task_tombstones", q.cursor, limit).await?;
-    let has_more = rows.len() as i64 == limit;
-    let new_cursor = rows.last().map(|r| r.1).unwrap_or(q.cursor);
-    let live_ids: Vec<Uuid> = rows.iter().filter(|r| r.2 == "live").map(|r| r.0).collect();
+    let changes = kubuno_db::journal::changes_since(
+        &state.db, sync::TASKS_TABLE, sync::TASK_TOMBSTONES, user.id, q.cursor, limit,
+    )
+    .await?;
+    let (new_cursor, has_more) = cursor_and_more(&changes, q.cursor, limit);
+    let live_ids: Vec<Uuid> = changes.iter().filter(|c| !c.deleted).map(|c| c.id).collect();
 
-    let tasks: Vec<Task> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, Task>("SELECT * FROM tasks.tasks WHERE id = ANY($1)")
-            .bind(&live_ids)
-            .fetch_all(&state.db)
-            .await?
-    };
-    let labels: Vec<(Uuid, Uuid)> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as("SELECT task_id, label_id FROM tasks.task_labels WHERE task_id = ANY($1)")
-            .bind(&live_ids)
-            .fetch_all(&state.db)
-            .await?
-    };
-    let assignees: Vec<(Uuid, Uuid)> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as("SELECT task_id, user_id FROM tasks.task_assignees WHERE task_id = ANY($1)")
-            .bind(&live_ids)
-            .fetch_all(&state.db)
-            .await?
-    };
-    let comments: Vec<Comment> = if live_ids.is_empty() {
-        Vec::new()
-    } else {
-        sqlx::query_as::<_, Comment>(
-            "SELECT * FROM tasks.comments WHERE task_id = ANY($1) ORDER BY created_at",
-        )
-        .bind(&live_ids)
-        .fetch_all(&state.db)
-        .await?
-    };
+    let tasks: Vec<Task> =
+        select_in(&state, "SELECT * FROM tasks.tasks", "id", &live_ids, "").await?;
+    let labels: Vec<(Uuid, Uuid)> = select_in(
+        &state, "SELECT task_id, label_id FROM tasks.task_labels", "task_id", &live_ids, "",
+    )
+    .await?;
+    let assignees: Vec<(Uuid, Uuid)> = select_in(
+        &state, "SELECT task_id, user_id FROM tasks.task_assignees", "task_id", &live_ids, "",
+    )
+    .await?;
+    let comments: Vec<Comment> = select_in(
+        &state, "SELECT * FROM tasks.comments", "task_id", &live_ids, " ORDER BY created_at",
+    )
+    .await?;
+
     let mut label_map: std::collections::HashMap<Uuid, Vec<Uuid>> = Default::default();
     for (t, l) in labels {
         label_map.entry(t).or_default().push(l);
@@ -199,21 +165,21 @@ pub async fn tasks_delta(
 
     let empty_u: Vec<Uuid> = Vec::new();
     let empty_c: Vec<&Comment> = Vec::new();
-    let mut changes = Vec::with_capacity(rows.len());
-    for (id, seq, src) in &rows {
-        if src == "tomb" {
-            changes.push(json!({ "uuid": id, "kind": "deleted", "change_seq": seq }));
-        } else if let Some(t) = task_map.get(id) {
-            changes.push(json!({
-                "uuid": id,
+    let mut out = Vec::with_capacity(changes.len());
+    for c in &changes {
+        if c.deleted {
+            out.push(json!({ "uuid": c.id, "kind": "deleted", "change_seq": c.change_seq }));
+        } else if let Some(t) = task_map.get(&c.id) {
+            out.push(json!({
+                "uuid": c.id,
                 "kind": "modified",
-                "change_seq": seq,
+                "change_seq": c.change_seq,
                 "task": t,
-                "labels": label_map.get(id).unwrap_or(&empty_u),
-                "assignees": asg_map.get(id).unwrap_or(&empty_u),
-                "comments": c_map.get(id).unwrap_or(&empty_c),
+                "labels": label_map.get(&c.id).unwrap_or(&empty_u),
+                "assignees": asg_map.get(&c.id).unwrap_or(&empty_u),
+                "comments": c_map.get(&c.id).unwrap_or(&empty_c),
             }));
         }
     }
-    Ok(Json(json!({ "changes": changes, "cursor": new_cursor, "has_more": has_more })))
+    Ok(Json(json!({ "changes": out, "cursor": new_cursor, "has_more": has_more })))
 }

@@ -34,6 +34,11 @@ pub struct Task {
     pub sort_order:       i32,
     pub position:         f64,
     pub linked_event_id:  Option<Uuid>,
+    /// Stored as a JSON array of UUID strings (portable across the three
+    /// engines; PostgreSQL's native `UUID[]` was converted to `jsonb`). The
+    /// `#[sqlx(json)]` attribute decodes it through `sqlx::types::Json` on all
+    /// drivers, and it is written back with `params![linked_file_ids]`.
+    #[sqlx(json)]
     pub linked_file_ids:  Vec<Uuid>,
     pub created_at:       DateTime<Utc>,
     pub updated_at:       DateTime<Utc>,

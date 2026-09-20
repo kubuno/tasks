@@ -1,0 +1,17 @@
+DROP TRIGGER IF EXISTS tasks_ctag_del;
+DROP TRIGGER IF EXISTS tasks_ctag_upd;
+DROP TRIGGER IF EXISTS tasks_ctag_ins;
+DROP TABLE IF EXISTS tasks.task_tombstones;
+DROP TABLE IF EXISTS tasks.board_tombstones;
+DROP TABLE IF EXISTS tasks.change_counter;
+DROP TABLE IF EXISTS tasks.board_comments;
+DROP TABLE IF EXISTS tasks.scheduled_reminders;
+DROP TABLE IF EXISTS tasks.attachments;
+DROP TABLE IF EXISTS tasks.comments;
+DROP TABLE IF EXISTS tasks.task_assignees;
+DROP TABLE IF EXISTS tasks.task_labels;
+DROP TABLE IF EXISTS tasks.tasks;
+DROP TABLE IF EXISTS tasks.labels;
+DROP TABLE IF EXISTS tasks.stacks;
+DROP TABLE IF EXISTS tasks.board_shares;
+DROP TABLE IF EXISTS tasks.boards;

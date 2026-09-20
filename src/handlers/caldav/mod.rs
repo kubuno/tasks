@@ -6,11 +6,14 @@ use axum::{
     routing::any,
     Router,
 };
+use kubuno_db::dialect::Assign;
+use kubuno_db::params;
 
 use crate::{
     models::{board::Board, task::Task},
     services::icalendar_service::ICalendarService,
     state::AppState,
+    sync,
 };
 
 pub fn caldav_router() -> Router<AppState> {
@@ -101,12 +104,13 @@ async fn board_collection(
         )
             .into_response(),
         "PROPFIND" => {
-            let board = match sqlx::query_as::<_, Board>(
-                "SELECT * FROM tasks.boards WHERE caldav_token = $1",
-            )
-            .bind(&token)
-            .fetch_optional(&state.db)
-            .await
+            let board = match state
+                .db
+                .fetch_optional_as::<Board>(
+                    "SELECT * FROM tasks.boards WHERE caldav_token = $1",
+                    params![&token],
+                )
+                .await
             {
                 Ok(Some(b)) => b,
                 Ok(None) => return StatusCode::NOT_FOUND.into_response(),
@@ -138,12 +142,13 @@ async fn board_collection(
             xml_response(StatusCode::MULTI_STATUS, body)
         }
         "REPORT" => {
-            let board_id = match sqlx::query_scalar::<_, uuid::Uuid>(
-                "SELECT id FROM tasks.boards WHERE caldav_token = $1",
-            )
-            .bind(&token)
-            .fetch_optional(&state.db)
-            .await
+            let board_id = match state
+                .db
+                .fetch_optional_scalar::<uuid::Uuid>(
+                    "SELECT id FROM tasks.boards WHERE caldav_token = $1",
+                    params![&token],
+                )
+                .await
             {
                 Ok(Some(id)) => id,
                 Ok(None) => return StatusCode::NOT_FOUND.into_response(),
@@ -153,12 +158,10 @@ async fn board_collection(
                 }
             };
 
-            let tasks = match sqlx::query_as::<_, Task>(
-                "SELECT * FROM tasks.tasks WHERE board_id = $1",
-            )
-            .bind(board_id)
-            .fetch_all(&state.db)
-            .await
+            let tasks = match state
+                .db
+                .fetch_all_as::<Task>("SELECT * FROM tasks.tasks WHERE board_id = $1", params![board_id])
+                .await
             {
                 Ok(t) => t,
                 Err(e) => {
@@ -206,17 +209,17 @@ async fn task_resource(
 
     match method.as_str() {
         "GET" | "HEAD" => {
-            match sqlx::query_as::<_, Task>(
-                r#"
-                SELECT t.* FROM tasks.tasks t
-                JOIN tasks.boards b ON b.id = t.board_id
-                WHERE b.caldav_token = $1 AND t.ical_uid = $2
-                "#,
-            )
-            .bind(&token)
-            .bind(uid)
-            .fetch_optional(&state.db)
-            .await
+            match state
+                .db
+                .fetch_optional_as::<Task>(
+                    r#"
+                    SELECT t.* FROM tasks.tasks t
+                    JOIN tasks.boards b ON b.id = t.board_id
+                    WHERE b.caldav_token = $1 AND t.ical_uid = $2
+                    "#,
+                    params![token, uid],
+                )
+                .await
             {
                 Ok(Some(task)) => {
                     let ics = ICalendarService::task_to_ics(&task, &[]);
@@ -237,27 +240,7 @@ async fn task_resource(
                 }
             }
         }
-        "DELETE" => {
-            match sqlx::query(
-                r#"
-                DELETE FROM tasks.tasks t
-                USING tasks.boards b
-                WHERE t.board_id = b.id AND b.caldav_token = $1 AND t.ical_uid = $2
-                "#,
-            )
-            .bind(&token)
-            .bind(uid)
-            .execute(&state.db)
-            .await
-            {
-                Ok(r) if r.rows_affected() > 0 => StatusCode::NO_CONTENT.into_response(),
-                Ok(_) => StatusCode::NOT_FOUND.into_response(),
-                Err(e) => {
-                    tracing::error!(error = %e, "CalDAV DELETE error");
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
-                }
-            }
-        }
+        "DELETE" => delete_task(&state, &token, uid).await,
         "PUT" => put_task(&state, &token, uid, &headers, &body).await,
         "OPTIONS" => (
             StatusCode::OK,
@@ -271,6 +254,49 @@ async fn task_resource(
     }
 }
 
+/// The `USING`-join delete is PostgreSQL-only, so the task is resolved first and
+/// then deleted by id — which also lets the deletion take a change_seq and write
+/// its tombstone (what the old AFTER DELETE trigger did).
+async fn delete_task(state: &AppState, token: &str, uid: &str) -> Response {
+    let found = state
+        .db
+        .fetch_optional_as::<(uuid::Uuid, uuid::Uuid)>(
+            r#"
+            SELECT t.id, t.owner_id FROM tasks.tasks t
+            JOIN tasks.boards b ON b.id = t.board_id
+            WHERE b.caldav_token = $1 AND t.ical_uid = $2
+            "#,
+            params![token, uid],
+        )
+        .await;
+
+    let (task_id, owner_id) = match found {
+        Ok(Some(v)) => v,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(e) => {
+            tracing::error!(error = %e, "CalDAV DELETE lookup error");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+
+    let result = async {
+        let mut tx = state.db.begin().await?;
+        let seq = sync::next_task_seq(&mut tx).await?;
+        tx.execute("DELETE FROM tasks.tasks WHERE id = $1", params![task_id]).await?;
+        kubuno_db::journal::record_tombstone(&mut tx, sync::TASK_TOMBSTONES, task_id, owner_id, seq).await?;
+        tx.commit().await
+    }
+    .await;
+
+    match result {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => {
+            tracing::error!(error = %e, "CalDAV DELETE error");
+            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+        }
+    }
+}
+
 async fn put_task(
     state: &AppState,
     token: &str,
@@ -278,13 +304,13 @@ async fn put_task(
     headers: &HeaderMap,
     body: &Bytes,
 ) -> Response {
-    // Résolution du board via le token.
-    let (board_id, owner_id) = match sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid)>(
-        "SELECT id, owner_id FROM tasks.boards WHERE caldav_token = $1",
-    )
-    .bind(token)
-    .fetch_optional(&state.db)
-    .await
+    let (board_id, owner_id) = match state
+        .db
+        .fetch_optional_as::<(uuid::Uuid, uuid::Uuid)>(
+            "SELECT id, owner_id FROM tasks.boards WHERE caldav_token = $1",
+            params![token],
+        )
+        .await
     {
         Ok(Some(v)) => v,
         Ok(None) => return StatusCode::NOT_FOUND.into_response(),
@@ -307,66 +333,74 @@ async fn put_task(
         None => return StatusCode::BAD_REQUEST.into_response(),
     };
 
-    // L'UID stocké : celui du corps si présent, sinon le nom de ressource.
     let ical_uid = if todo.uid.is_empty() { uid.to_string() } else { todo.uid.clone() };
 
-    // Gestion If-None-Match: * (création seulement).
+    // If-None-Match: * — création seulement.
     let if_none_match = headers
         .get(axum::http::header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok());
     if if_none_match == Some("*") {
-        let exists: Option<uuid::Uuid> =
-            sqlx::query_scalar("SELECT id FROM tasks.tasks WHERE ical_uid = $1")
-                .bind(&ical_uid)
-                .fetch_optional(&state.db)
-                .await
-                .ok()
-                .flatten();
+        let exists: Option<uuid::Uuid> = state
+            .db
+            .fetch_optional_scalar("SELECT id FROM tasks.tasks WHERE ical_uid = $1", params![&ical_uid])
+            .await
+            .ok()
+            .flatten();
         if exists.is_some() {
             return StatusCode::PRECONDITION_FAILED.into_response();
         }
     }
 
+    let etag = sync::new_tag();
+    let backend = state.db.backend();
+    // Upsert on ical_uid; the DO UPDATE mirrors the fields the old statement set,
+    // with `sequence` bumped by an expression and the new etag / change_seq from
+    // the incoming row. `md5(random()::text)` is gone: the etag is minted here.
+    let clause = backend.upsert(
+        "tasks.tasks",
+        &["ical_uid"],
+        &[
+            Assign::Incoming("title"),
+            Assign::Incoming("description"),
+            Assign::Incoming("status"),
+            Assign::Incoming("priority"),
+            Assign::Incoming("percent_complete"),
+            Assign::Incoming("due_at"),
+            Assign::Incoming("start_at"),
+            Assign::Incoming("completed_at"),
+            Assign::Incoming("rrule"),
+            Assign::Expr { col: "sequence", expr: "{cur} + 1" },
+            Assign::Incoming("etag"),
+            Assign::Incoming("change_seq"),
+        ],
+    );
     let reminders = serde_json::json!([]);
-    let result = sqlx::query_scalar::<_, String>(
-        r#"
-        INSERT INTO tasks.tasks
-            (board_id, owner_id, title, description, status, priority,
-             percent_complete, due_at, start_at, completed_at, rrule, reminders, ical_uid)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        ON CONFLICT (ical_uid) DO UPDATE
-            SET title = EXCLUDED.title, description = EXCLUDED.description,
-                status = EXCLUDED.status, priority = EXCLUDED.priority,
-                percent_complete = EXCLUDED.percent_complete, due_at = EXCLUDED.due_at,
-                start_at = EXCLUDED.start_at, completed_at = EXCLUDED.completed_at,
-                rrule = EXCLUDED.rrule, sequence = tasks.tasks.sequence + 1,
-                etag = md5(random()::text)
-        RETURNING etag
-        "#,
-    )
-    .bind(board_id)
-    .bind(owner_id)
-    .bind(&todo.summary)
-    .bind(&todo.description)
-    .bind(&todo.status)
-    .bind(todo.priority)
-    .bind(todo.percent_complete)
-    .bind(todo.due_at)
-    .bind(todo.start_at)
-    .bind(todo.completed_at)
-    .bind(&todo.rrule)
-    .bind(&reminders)
-    .bind(&ical_uid)
-    .fetch_one(&state.db)
+    let empty_files: Vec<uuid::Uuid> = Vec::new();
+
+    let result = async {
+        let mut tx = state.db.begin().await?;
+        let seq = sync::next_task_seq(&mut tx).await?;
+        let sql = format!(
+            "INSERT INTO tasks.tasks
+               (id, board_id, owner_id, title, description, status, priority, percent_complete,
+                due_at, start_at, completed_at, rrule, reminders, ical_uid, etag, change_seq, linked_file_ids)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17){clause}"
+        );
+        tx.execute(
+            &sql,
+            params![
+                kubuno_db::new_id(), board_id, owner_id, todo.summary, todo.description, todo.status,
+                todo.priority, todo.percent_complete, todo.due_at, todo.start_at, todo.completed_at,
+                todo.rrule, reminders, ical_uid, etag.clone(), seq, empty_files
+            ],
+        )
+        .await?;
+        tx.commit().await.map(|_| etag)
+    }
     .await;
 
     match result {
-        Ok(etag) => (
-            StatusCode::CREATED,
-            [(axum::http::header::ETAG, etag)],
-            "",
-        )
-            .into_response(),
+        Ok(etag) => (StatusCode::CREATED, [(axum::http::header::ETAG, etag)], "").into_response(),
         Err(e) => {
             tracing::error!(error = %e, "CalDAV PUT upsert error");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
