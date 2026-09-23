@@ -9,6 +9,12 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ## [Unreleased]
 
+### Security
+
+- **Security fixes from the shared database layer (kubuno-db 0.9.0).** The
+  database password can no longer appear in a log through the debug output of
+  the database settings.
+
 ### Changed
 
 - **The module now runs on PostgreSQL, MySQL/MariaDB or SQLite.** The engine is
