@@ -11,6 +11,8 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Security
 
+- **Board and task exports, and images from Drive in comments, no longer rely on the access-token cookie
+  the web client used to keep readable by page scripts**; they use short-lived signed tickets. Requires a Kubuno core that issues signed tickets (`POST /api/v1/auth/tickets`) and `@kubuno/sdk` with the signed-URL helpers.
 - **Security fixes from the shared database layer (kubuno-db 0.9.0).** The
   database password can no longer appear in a log through the debug output of
   the database settings.

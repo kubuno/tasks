@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { LayoutGrid, List, Download, Upload } from 'lucide-react'
+import { downloadSignedUrl } from '@kubuno/sdk'
 import { tasksApi } from './api'
 import { useTasksStore, type TasksView } from './store'
 
@@ -59,7 +60,7 @@ export default function TasksToolbar() {
           <ViewBtn v="list" icon={<List size={15} />} />
         </div>
         <button onClick={importIcs} title={t('import_ics')} className="p-1.5 rounded hover:bg-surface-2 text-text-secondary"><Upload size={16} /></button>
-        <a href={boardId ? tasksApi.exportBoardUrl(boardId) : '#'} title={t('export_ics')} className="p-1.5 rounded hover:bg-surface-2 text-text-secondary"><Download size={16} /></a>
+        <a href={boardId ? tasksApi.exportBoardUrl(boardId) : '#'} onClick={e => { e.preventDefault(); if (boardId) void downloadSignedUrl(tasksApi.exportBoardUrl(boardId)) }} title={t('export_ics')} className="p-1.5 rounded hover:bg-surface-2 text-text-secondary"><Download size={16} /></a>
       </div>
     </div>
   )

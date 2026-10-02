@@ -1,4 +1,4 @@
-import { useConfirm, prompt } from '@kubuno/sdk'
+import { useConfirm, prompt, downloadSignedUrl } from '@kubuno/sdk'
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -100,7 +100,7 @@ export default function TasksKanbanBoard({ boardId }: Props) {
       const title = await prompt({ title: t('add_subtask'), placeholder: t('title'), confirmLabel: t('add') })
       if (title?.trim()) { await tasksApi.createSubtask(task.id, { board_id: boardId, title: title.trim() }); invalidate() }
     },
-    onExportIcs: (task: Task) => window.open(`/api/v1/tasks/tasks/${task.id}/ics`, '_blank'),
+    onExportIcs: (task: Task) => { void downloadSignedUrl(`/api/v1/tasks/tasks/${task.id}/ics`) },
     onCopyCard: (task: Task) => { copyKubunoData(taskEnvelope(task)).catch(() => {}) },
     onKubunoLabels: (task: Task) => { openLabelPicker(taskEnvelope(task)).catch(() => {}) },
     onDelete: async (task: Task) => {
