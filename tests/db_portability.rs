@@ -293,6 +293,78 @@ async fn full_suite(pool: &kubuno_db::DbPool) {
         task_changes.iter().any(|c| c.id == a.task.id && c.deleted),
         "the board's cascade must tombstone its surviving task A"
     );
+
+    caldav_suite(pool, &instance).await;
+}
+
+fn board_dto(title: &str) -> CreateBoardDto {
+    CreateBoardDto {
+        id: None,
+        initial_stack_ids: None,
+        title: title.into(),
+        description: None,
+        color: None,
+        board_type: Some("kanban".into()),
+    }
+}
+
+/// CalDAV writes stay in the token's board, and read-only members never get the token.
+async fn caldav_suite(pool: &kubuno_db::DbPool, instance: &InstanceConfig) {
+    use kubuno_tasks::models::board::ShareBoardDto;
+    use kubuno_tasks::services::caldav_write::{put_task, CaldavPut};
+    use kubuno_tasks::services::icalendar_service::ParsedVtodo;
+
+    let (alice, mallory, reader) = (Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4());
+    let victim = BoardService::create(alice, board_dto("Victim"), pool).await.expect("victim board");
+    let attacker = BoardService::create(mallory, board_dto("Attacker"), pool).await.expect("attacker board");
+    let todo = |summary: &str| ParsedVtodo {
+        uid: String::new(),
+        summary: summary.into(),
+        description: None,
+        status: "open".into(),
+        priority: 0,
+        percent_complete: 0,
+        due_at: None,
+        start_at: None,
+        completed_at: None,
+        parent_uid: None,
+        categories: vec![],
+        rrule: None,
+    };
+    let uid = format!("uid-{}", Uuid::new_v4());
+
+    let made = put_task(pool, victim.id, alice, &uid, &todo("Pay rent"), true).await.expect("create");
+    assert!(matches!(made, CaldavPut::Created(_)));
+    assert_eq!(
+        put_task(pool, victim.id, alice, &uid, &todo("Pay rent"), true).await.expect("inm"),
+        CaldavPut::PreconditionFailed,
+        "If-None-Match: * on an existing UID of the same board"
+    );
+    // Through ANOTHER board's token, the same UID: refused, the victim's task untouched.
+    assert_eq!(
+        put_task(pool, attacker.id, mallory, &uid, &todo("pwned"), false).await.expect("forged"),
+        CaldavPut::Conflict
+    );
+    let title: String = pool
+        .fetch_scalar("SELECT title FROM tasks.tasks WHERE ical_uid = $1", params![uid.clone()])
+        .await
+        .expect("title");
+    assert_eq!(title, "Pay rent");
+    // The owner's own update goes through.
+    let updated = put_task(pool, victim.id, alice, &uid, &todo("Pay rent today"), false).await.expect("update");
+    assert!(matches!(updated, CaldavPut::Updated(_)));
+
+    // The token reaches the owner and writers, never a read-only member.
+    let mut inst = *instance;
+    inst.allow_board_sharing = true;
+    BoardService::share(victim.id, alice, ShareBoardDto { user_id: reader, permission: Some("read".into()) }, &inst, pool)
+        .await
+        .expect("share read");
+    assert!(!BoardService::get(victim.id, alice, pool).await.expect("owner get").caldav_token.is_empty());
+    assert!(BoardService::get(victim.id, reader, pool).await.expect("reader get").caldav_token.is_empty());
+    let listed = BoardService::list(reader, pool).await.expect("reader list");
+    let seen = listed.iter().find(|b| b.id == victim.id).expect("shared board listed");
+    assert!(seen.caldav_token.is_empty(), "a reader lists the board without its CalDAV token");
 }
 
 #[tokio::test]

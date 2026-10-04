@@ -184,6 +184,8 @@ export default function BoardEditWindow({ board, onClose, onDeleted }: Props) {
           {tab === 'caldav' && (
             <div className="space-y-3">
               <p className="text-xs text-text-secondary">{t('caldav_help')}</p>
+              {/* A read-only member receives no CalDAV token (the address grants writes). */}
+              {board.caldav_token && (
               <div className="flex items-center gap-2 border border-border rounded-lg px-3 py-2">
                 <span className="flex-1 text-xs font-mono bg-surface-2 rounded px-2 py-1 truncate min-w-0">{caldavUrl}</span>
                 <button onClick={() => { navigator.clipboard.writeText(caldavUrl); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
@@ -191,6 +193,7 @@ export default function BoardEditWindow({ board, onClose, onDeleted }: Props) {
                   {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
                 </button>
               </div>
+              )}
             </div>
           )}
         </div>

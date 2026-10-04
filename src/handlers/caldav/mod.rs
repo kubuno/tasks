@@ -6,11 +6,11 @@ use axum::{
     routing::any,
     Router,
 };
-use kubuno_db::dialect::Assign;
 use kubuno_db::params;
 
 use crate::{
     models::{board::Board, task::Task},
+    services::caldav_write::{self, CaldavPut},
     services::icalendar_service::ICalendarService,
     state::AppState,
     sync,
@@ -334,75 +334,25 @@ async fn put_task(
     };
 
     let ical_uid = if todo.uid.is_empty() { uid.to_string() } else { todo.uid.clone() };
+    if ical_uid.is_empty() || ical_uid.len() > 500 {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
 
-    // If-None-Match: * — création seulement.
-    let if_none_match = headers
+    // If-None-Match: * — create only (checked against THIS board).
+    let if_none_match_star = headers
         .get(axum::http::header::IF_NONE_MATCH)
-        .and_then(|v| v.to_str().ok());
-    if if_none_match == Some("*") {
-        let exists: Option<uuid::Uuid> = state
-            .db
-            .fetch_optional_scalar("SELECT id FROM tasks.tasks WHERE ical_uid = $1", params![&ical_uid])
-            .await
-            .ok()
-            .flatten();
-        if exists.is_some() {
-            return StatusCode::PRECONDITION_FAILED.into_response();
-        }
-    }
+        .and_then(|v| v.to_str().ok())
+        == Some("*");
 
-    let etag = sync::new_tag();
-    let backend = state.db.backend();
-    // Upsert on ical_uid; the DO UPDATE mirrors the fields the old statement set,
-    // with `sequence` bumped by an expression and the new etag / change_seq from
-    // the incoming row. `md5(random()::text)` is gone: the etag is minted here.
-    let clause = backend.upsert(
-        "tasks.tasks",
-        &["ical_uid"],
-        &[
-            Assign::Incoming("title"),
-            Assign::Incoming("description"),
-            Assign::Incoming("status"),
-            Assign::Incoming("priority"),
-            Assign::Incoming("percent_complete"),
-            Assign::Incoming("due_at"),
-            Assign::Incoming("start_at"),
-            Assign::Incoming("completed_at"),
-            Assign::Incoming("rrule"),
-            Assign::Expr { col: "sequence", expr: "{cur} + 1" },
-            Assign::Incoming("etag"),
-            Assign::Incoming("change_seq"),
-        ],
-    );
-    let reminders = serde_json::json!([]);
-    let empty_files: Vec<uuid::Uuid> = Vec::new();
-
-    let result = async {
-        let mut tx = state.db.begin().await?;
-        let seq = sync::next_task_seq(&mut tx).await?;
-        let sql = format!(
-            "INSERT INTO tasks.tasks
-               (id, board_id, owner_id, title, description, status, priority, percent_complete,
-                due_at, start_at, completed_at, rrule, reminders, ical_uid, etag, change_seq, linked_file_ids)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17){clause}"
-        );
-        tx.execute(
-            &sql,
-            params![
-                kubuno_db::new_id(), board_id, owner_id, todo.summary, todo.description, todo.status,
-                todo.priority, todo.percent_complete, todo.due_at, todo.start_at, todo.completed_at,
-                todo.rrule, reminders, ical_uid, etag.clone(), seq, empty_files
-            ],
-        )
-        .await?;
-        tx.commit().await.map(|_| etag)
-    }
-    .await;
-
-    match result {
-        Ok(etag) => (StatusCode::CREATED, [(axum::http::header::ETAG, etag)], "").into_response(),
+    // The write is scoped to the token's board: a UID held by another board is a
+    // conflict, never an overwrite (see `services::caldav_write`).
+    match caldav_write::put_task(&state.db, board_id, owner_id, &ical_uid, &todo, if_none_match_star).await {
+        Ok(CaldavPut::Created(etag)) => (StatusCode::CREATED, [(axum::http::header::ETAG, etag)], "").into_response(),
+        Ok(CaldavPut::Updated(etag)) => (StatusCode::NO_CONTENT, [(axum::http::header::ETAG, etag)], "").into_response(),
+        Ok(CaldavPut::PreconditionFailed) => StatusCode::PRECONDITION_FAILED.into_response(),
+        Ok(CaldavPut::Conflict) => StatusCode::CONFLICT.into_response(),
         Err(e) => {
-            tracing::error!(error = %e, "CalDAV PUT upsert error");
+            tracing::error!(error = %e, "CalDAV PUT write error");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()
         }
     }

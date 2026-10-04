@@ -18,6 +18,9 @@ number at release time, and CI publishes that section as the GitHub Release note
 
 ### Security
 
+- **A CalDAV client can no longer overwrite a task of another board.** A `PUT` is now confined to the board of its CalDAV address: a task UID that belongs to another board is refused with `409 Conflict` instead of overwriting that task (which could belong to another user), and `If-None-Match: *` is checked against the board itself. A `PUT` that updates an existing task now answers `204 No Content` (with the new `ETag`) instead of `201 Created`.
+- **Read-only members of a shared board no longer receive its CalDAV address.** The address grants read AND write access, so it is now only given to the owner and to members who may edit; the board settings and the CalDAV settings page hide it for read-only members.
+
 - **Board and task exports, and images from Drive in comments, no longer rely on the access-token cookie
   the web client used to keep readable by page scripts**; they use short-lived signed tickets. Requires a Kubuno core that issues signed tickets (`POST /api/v1/auth/tickets`) and `@kubuno/sdk` with the signed-URL helpers.
 - **Security fixes from the shared database layer (kubuno-db 0.9.0).** The

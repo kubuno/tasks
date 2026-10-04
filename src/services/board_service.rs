@@ -29,6 +29,15 @@ fn is_unique_violation(e: &sqlx::Error) -> bool {
     e.as_database_error().map(|d| d.is_unique_violation()).unwrap_or(false)
 }
 
+/// The CalDAV token opens a board for reading AND writing (PUT / DELETE), so
+/// only a member who may write receives it; a read-only member gets an empty
+/// token (and no CalDAV address).
+pub fn redact_caldav_token(board: &mut Board, level: Option<&str>) {
+    if perm_rank(level.unwrap_or("")) < perm_rank("write") {
+        board.caldav_token = String::new();
+    }
+}
+
 impl BoardService {
     /// Liste les boards accessibles (propres + partagés). Le board par défaut
     /// (non supprimable, non renommable) est garanti et placé en tête.
@@ -46,6 +55,22 @@ impl BoardService {
                 params![user_id, user_id],
             )
             .await?;
+        // A shared board's CalDAV token is withheld from read-only members.
+        let shares: Vec<(Uuid, String)> = db
+            .fetch_all_as(
+                "SELECT board_id, permission FROM tasks.board_shares WHERE shared_with = $1",
+                params![user_id],
+            )
+            .await?;
+        let mut rows = rows;
+        for b in &mut rows {
+            let level = if b.owner_id == user_id {
+                Some("admin")
+            } else {
+                shares.iter().find(|(id, _)| *id == b.id).map(|(_, p)| p.as_str())
+            };
+            redact_caldav_token(b, level);
+        }
         Ok(rows)
     }
 
@@ -133,9 +158,13 @@ impl BoardService {
 
     pub async fn get(id: Uuid, user_id: Uuid, db: &DbPool) -> Result<Board> {
         Self::assert_access(id, user_id, "read", db).await?;
-        db.fetch_optional_as::<Board>("SELECT * FROM tasks.boards WHERE id = $1", params![id])
+        let level = Self::access_level(id, user_id, db).await?;
+        let mut board = db
+            .fetch_optional_as::<Board>("SELECT * FROM tasks.boards WHERE id = $1", params![id])
             .await?
-            .ok_or_else(|| TasksError::NotFound(format!("Board {id}")))
+            .ok_or_else(|| TasksError::NotFound(format!("Board {id}")))?;
+        redact_caldav_token(&mut board, level.as_deref());
+        Ok(board)
     }
 
     /// Refuses one more board when the account already sits at the ceiling the

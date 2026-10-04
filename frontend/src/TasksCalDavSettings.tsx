@@ -33,7 +33,7 @@ export default function TasksCalDavSettings() {
       </div>
 
       <div className="space-y-2">
-        {boards.filter(b => !b.is_archived).map(b => {
+        {boards.filter(b => !b.is_archived && b.caldav_token).map(b => {
           const url = `${origin}/api/v1/tasks/caldav/${username}/${b.caldav_token}/`
           return (
             <div key={b.id} className="flex items-center gap-2 border border-border rounded-lg px-3 py-2">
