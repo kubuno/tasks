@@ -47,8 +47,9 @@ Keep your to-dos in side-by-side lists or on drag-and-drop boards, with subtasks
 
 Kubuno is **modular**: a **core** (the platform's "operating system") plus independent **modules**. Each module — Tasks included — is a **separate process** that connects to the core at startup on its own dedicated port (**3116** for Tasks); the core proxies its routes (`/api/v1/tasks/*`), distributes events and serves its runtime-loaded React frontend bundle.
 
-- **Backend** — `src/`: Axum + SQLx through the shared `kubuno-db` layer — PostgreSQL (schema `tasks`), MySQL/MariaDB or SQLite; migrations in `migrations/`.
-- **Frontend** — `frontend/`: a React bundle built to `entry.js`, consuming `@kubuno/sdk`, `@ui` and `@kubuno/drive` from the host at runtime via its import map.
+- **Server** — `server/`: Axum + SQLx through the shared `kubuno-db` layer — PostgreSQL (schema `tasks`), MySQL/MariaDB or SQLite; migrations in `server/migrations/`.
+- **Web** — `web/`: a React bundle built to `entry.js`, consuming `@kubuno/sdk`, `@ui` and `@kubuno/drive` from the host at runtime via its import map.
+- **Mobile** — `mobile/`: reserved for the mobile apps (see `mobile/README.md`).
 
 ## Install
 
@@ -68,8 +69,8 @@ The `.kbpkg` is a ZIP archive rooted at the module folder; the core unpacks it i
 **Requirements:** Rust ≥ 1.82, Node.js ≥ 24, and PostgreSQL 16, MySQL/MariaDB or SQLite (no server needed).
 
 ```bash
-cargo build --release                     # → target/release/kubuno-tasks (shared crates from git tags)
-cd frontend && npm ci && npm run build    # → dist/{entry.js, entry.css} (@kubuno/* from npm)
+cd server && cargo build --release        # → server/target/release/kubuno-tasks (shared crates from git tags)
+cd web && npm ci && npm run build         # → web/dist/{entry.js, entry.css} (@kubuno/* from npm)
 bash build_kbpkg.sh                       # → dist/tasks-<version>-<os>-<arch>.kbpkg
 bash build_kbpkg.sh --install             # build, install into the local module store, and restart
 ```
@@ -80,7 +81,7 @@ bash build_kbpkg.sh --install             # build, install into the local module
 
 ## Configuration
 
-Copy `config.toml.example` → `config.toml`, or use environment variables (`KUBUNO_CORE_URL`, `KUBUNO_INTERNAL_SECRET`, `KUBUNO_DB_*`). The database engine is the administrator's choice, set in `[database] engine` — `postgres` (default), `mysql`/`mariadb` or `sqlite` — and read at start-up: the same binary connects to whichever is named, and SQLite needs no server at all. Under the Kubuno supervisor the connection settings are injected by the core. See `module.toml` for the manifest (id, port, routes, sidebar entry, settings).
+Copy `server/config.toml.example` → `server/config.toml`, or use environment variables (`KUBUNO_CORE_URL`, `KUBUNO_INTERNAL_SECRET`, `KUBUNO_DB_*`). The database engine is the administrator's choice, set in `[database] engine` — `postgres` (default), `mysql`/`mariadb` or `sqlite` — and read at start-up: the same binary connects to whichever is named, and SQLite needs no server at all. Under the Kubuno supervisor the connection settings are injected by the core. See `module.toml` for the manifest (id, port, routes, sidebar entry, settings).
 
 ## Tech stack
 
