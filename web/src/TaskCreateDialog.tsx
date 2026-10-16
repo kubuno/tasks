@@ -2,8 +2,8 @@
  * Globally-mounted task creator (slot `app-dialogs`).
  *
  * Rendered by the host shell in every route, so a CONSUMER module (chat…) can
- * create a task purely through `ModuleServiceRegistry.call('tasks', 'createTask')`
- * - no cross-module import, no route change. The pending promise lives in
+ * create a task purely through `ModuleServiceRegistry.call('tasks', 'createTask')` -
+ * no cross-module import, no route change. The pending promise lives in
  * `taskCreateStore` (contacts' `contactPickerStore` pattern) and is settled here.
  */
 import { useEffect, useState } from 'react'
