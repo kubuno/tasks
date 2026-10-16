@@ -12,7 +12,7 @@ import { useCallback } from 'react'
 // Writes are SERIALISED on a module-scoped promise chain. Two quick edits (say,
 // unchecking two lists in a row) would otherwise both read the store before the
 // first PATCH returned, and the second would write back a bag still missing the
-// first change — one edit out of two silently came back on reload.
+// first change - one edit out of two silently came back on reload.
 let writeChain: Promise<void> = Promise.resolve()
 
 export function useModulePrefs<T extends Record<string, unknown>>(

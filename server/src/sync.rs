@@ -4,8 +4,8 @@
 //! record and a tombstone per deletion. On PostgreSQL that used to be a
 //! `SEQUENCE` plus `BEFORE UPDATE` / `AFTER DELETE` triggers; here it is the
 //! portable [`kubuno_db::journal`] primitive, driven from Rust at every write
-//! site. This module holds the literal table / domain names those calls take —
-//! all `&'static str`, never request data — so the write sites read uniformly
+//! site. This module holds the literal table / domain names those calls take -
+//! all `&'static str`, never request data - so the write sites read uniformly
 //! and a rename happens in one place.
 //!
 //! Two entities are versioned: **boards** and **tasks**. Their children bump
@@ -15,7 +15,7 @@
 //! * comments / task_labels / task_assignees → bump their **task**
 //!
 //! (Attachments and board_shares are carried by neither delta feed, so they do
-//! not bump anything — matching the trigger design they replace.)
+//! not bump anything - matching the trigger design they replace.)
 
 use uuid::Uuid;
 
@@ -48,7 +48,7 @@ pub async fn next_task_seq(tx: &mut kubuno_db::DbTx) -> Result<i64, sqlx::Error>
     kubuno_db::journal::next_seq(tx, CHANGE_COUNTER, TASK_DOMAIN).await
 }
 
-/// Bumps a **board** to a fresh sequence — the portable replacement for the old
+/// Bumps a **board** to a fresh sequence - the portable replacement for the old
 /// child-triggered `UPDATE ... SET change_seq = change_seq` no-op. Called after
 /// any write to a stack, label or board comment.
 pub async fn touch_board(tx: &mut kubuno_db::DbTx, board_id: Uuid) -> Result<(), sqlx::Error> {

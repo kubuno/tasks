@@ -18,7 +18,7 @@ interface Props {
   onClose: () => void
 }
 
-/** 09:00 on the given day — a due date without a stated time means "that morning". */
+/** 09:00 on the given day - a due date without a stated time means "that morning". */
 function morningOf(d: Date): string {
   const at = new Date(d)
   at.setHours(9, 0, 0, 0)
@@ -45,7 +45,7 @@ export default function InlineComposer({ onSubmit, onClose }: Props) {
   const rootRef  = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLInputElement>(null)
   // The submit path reads these, and it runs from a blur listener that closes
-  // over the first render — a ref keeps it looking at what is on screen now.
+  // over the first render - a ref keeps it looking at what is on screen now.
   const draftRef = useRef<DraftTask>({ title: '', description: '', dueLocal: null, rrule: null })
   draftRef.current = { title, description, dueLocal, rrule }
 
@@ -68,7 +68,7 @@ export default function InlineComposer({ onSubmit, onClose }: Props) {
       const el = rootRef.current
       if (!el || el.contains(e.target as Node)) return
       // The date popover and the repeat menu render in a portal, outside this
-      // subtree — closing on their clicks would cancel the very edit they make.
+      // subtree - closing on their clicks would cancel the very edit they make.
       if ((e.target as HTMLElement).closest('[data-kb-portal], [role="dialog"], [role="menu"]')) return
       submit(false)
     }

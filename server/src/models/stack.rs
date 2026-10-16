@@ -14,7 +14,7 @@ pub struct Stack {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateStackDto {
-    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    /// Optional client-minted id (local-first sync replay) - honoured verbatim.
     #[serde(default)]
     pub id: Option<Uuid>,
     #[validate(length(min = 1, max = 255))]

@@ -2,7 +2,7 @@
 name        = "kubuno-tasks"
 version     = "0.1.9"
 edition     = "2021"
-description = "Kubuno Tasks — tâches et tableaux Kanban (Tasks + Deck)"
+description = "Kubuno Tasks - tâches et tableaux Kanban (Tasks + Deck)"
 license     = "AGPL-3.0"
 repository  = "https://github.com/kubuno/tasks"
 

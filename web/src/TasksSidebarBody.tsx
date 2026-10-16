@@ -16,7 +16,7 @@ import { hashTo, fromHash } from './hashRoute'
 // Every clickable element of this sidebar is an <a> carrying a real href.
 // Views have no route of their own, so they are addressable through the URL
 // hash (`/tasks/#collection/<key>`, cf. hashRoute.ts) and the selection is read
-// back from `useLocation().hash` — direct links and Back therefore work.
+// back from `useLocation().hash` - direct links and Back therefore work.
 const VIEWS: { key: Collection; icon: React.ReactNode }[] = [
   { key: 'all',     icon: <CheckCircle2 size={18} /> },
   { key: 'starred', icon: <Star size={18} /> },

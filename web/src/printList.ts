@@ -51,7 +51,7 @@ export function printTaskList(
     const kids = childrenOf.get(task.id) ?? []
     const isDone = task.status === 'done'
     const meta = [task.description, task.due_at ? new Date(task.due_at).toLocaleString() : '']
-      .filter(Boolean).map(x => esc(String(x))).join(' — ')
+      .filter(Boolean).map(x => esc(String(x))).join(' - ')
     return `<li class="${depth ? 'sub' : ''} ${isDone ? 'done' : ''}">`
       + `<span class="box ${isDone ? 'on' : ''}"></span>`
       + `<span class="label">${esc(task.title)}</span>`
@@ -75,7 +75,7 @@ export function printTaskList(
   }
   window.addEventListener('afterprint', cleanup)
   window.print()
-  // Safari never fires `afterprint` in some versions — a timer guarantees the
+  // Safari never fires `afterprint` in some versions - a timer guarantees the
   // page is put back the way it was found.
   setTimeout(cleanup, 1000)
 }

@@ -1,5 +1,5 @@
 import { ExtensionRegistry, CALENDAR_OVERLAY, type CalendarOverlayItem, type CalendarOverlayProvider, RouteRegistry, WidgetRegistry, WaffleAppRegistry, ModuleSettingsRegistry, ModuleServiceRegistry, NotificationRegistry, SlotRegistry, useSidebarStore, useToolbarStore, useSearchStore, useRightPanelStore, useAuthStore, api, i18n, SDK_VERSION, toDate, toISODate, FaviconRegistry } from '@kubuno/sdk'
-/** Bundle MODULE tasks — chargé à l'exécution (cf. vite.module.config). */
+/** Bundle MODULE tasks - chargé à l'exécution (cf. vite.module.config). */
 import { lazy } from 'react'
 
 // Per-user preference: should the calendar overlay include completed tasks?
@@ -61,7 +61,7 @@ export function register() {
   ])
 
   // The header gear button opens the per-user Tasks settings while in /tasks
-  // (the CalDAV section lives there as a tab — no longer in the core settings page).
+  // (the CalDAV section lives there as a tab - no longer in the core settings page).
   ModuleSettingsRegistry.register('tasks')
 
   // Declare the notification activities shown in the core Settings → Notifications matrix.
@@ -128,7 +128,7 @@ export function register() {
   RouteRegistry.register('tasks/settings',     TasksSettingsPage)
 
   // Surcharge du calendrier agenda : tasks superpose ses échéances (point
-  // d'extension générique — agenda n'a aucune référence à tasks).
+  // d'extension générique - agenda n'a aucune référence à tasks).
   ExtensionRegistry.register(CALENDAR_OVERLAY, 'tasks', {
     fetch: async (fromISO, toISO) => {
       try {

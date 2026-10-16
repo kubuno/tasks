@@ -18,7 +18,7 @@ export default function TasksFilterPanel({ onClose }: { onClose: () => void }) {
   // mirrors it: opening the panel pre-fills it with the current query, and
   // editing it rewrites the bar's text live (running the search like typing
   // does). The status dropdown is a state filter with no query-text
-  // representation — it deliberately stays panel-only (no invented operators).
+  // representation - it deliberately stays panel-only (no invented operators).
   const query    = useSearchStore(s => s.query)
   const setQuery = useSearchStore(s => s.setQuery)
   const [words, setWords] = useState(query)

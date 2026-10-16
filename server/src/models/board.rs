@@ -21,7 +21,7 @@ pub struct Board {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateBoardDto {
-    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    /// Optional client-minted id (local-first sync replay) - honoured verbatim.
     #[serde(default)]
     pub id: Option<Uuid>,
     /// Optional client-minted ids for the 3 default kanban stacks (in order).

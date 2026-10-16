@@ -186,7 +186,7 @@ impl BoardService {
             .await?;
         if owned >= instance.max_boards_per_user {
             return Err(TasksError::Validation(format!(
-                "Nombre maximal de tableaux atteint ({}) — supprimez-en un ou contactez votre administration",
+                "Nombre maximal de tableaux atteint ({}) - supprimez-en un ou contactez votre administration",
                 instance.max_boards_per_user
             )));
         }
@@ -286,7 +286,7 @@ impl BoardService {
         }
 
         // The FK cascade removes the board's tasks, but a cascade fires no
-        // application code — so the delta feed would never learn those tasks are
+        // application code - so the delta feed would never learn those tasks are
         // gone. Record a task tombstone for each (owner-scoped, as tasks_delta
         // reads them) before the board goes, exactly as the old AFTER DELETE
         // trigger did on cascade.

@@ -1,5 +1,5 @@
 //! Runs the tasks module's own migrations and its own services against a real
-//! server of **each** engine, from a single compiled binary — the proof that the
+//! server of **each** engine, from a single compiled binary - the proof that the
 //! engine is a run-time choice, not a build-time one, and that the three
 //! recently-ported primitives (delta sync, the dynamic QueryBuilder, and the
 //! JSON array column) behave identically on all of them.

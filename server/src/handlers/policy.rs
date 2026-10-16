@@ -1,7 +1,7 @@
 //! What the instance allows, as the module's screens need to know it.
 //!
 //! The core's `/modules/tasks/config` deliberately hides instance-scoped
-//! settings from accounts without the settings privilege — rightly so, it is the
+//! settings from accounts without the settings privilege - rightly so, it is the
 //! administration console's data. But the board screen still has to know that
 //! sharing is closed, and it has to know it for ORDINARY accounts. So the module
 //! publishes the few decisions its own screens act on, and nothing else: the

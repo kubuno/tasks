@@ -33,7 +33,7 @@ const DEFAULTS: TasksListPrefs = { hidden: [], sort: {}, listsOpen: true, doneOp
  * burst of clicks (unchecking three lists in a row) would each start from the
  * same stale base and the last one would win. A synchronous ref, resynchronised
  * whenever the stored value changes, gives every mutation the previous one's
- * result — the write chain in `useModulePrefs` then persists them in order.
+ * result - the write chain in `useModulePrefs` then persists them in order.
  */
 export function useListPrefs() {
   const { prefs, update } = useModulePrefs<TasksListPrefs>('tasks_lists', DEFAULTS)

@@ -34,7 +34,7 @@ export function taskEnvelope(task: Task): KubunoDataEnvelope {
     type: 'tasks.task',
     module: 'tasks',
     title: task.title,
-    text: `${task.title}${due ? ` — ${due.toLocaleDateString()}` : ''}\n${location.origin}${href}`,
+    text: `${task.title}${due ? ` - ${due.toLocaleDateString()}` : ''}\n${location.origin}${href}`,
     href,
     data,
   }

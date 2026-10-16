@@ -57,7 +57,7 @@ pub struct TaskWithMeta {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateTaskDto {
-    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    /// Optional client-minted id (local-first sync replay) - honoured verbatim.
     #[serde(default)]
     pub id: Option<Uuid>,
     pub board_id:        Uuid,

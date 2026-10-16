@@ -5,7 +5,7 @@
  * `createTask()` is parked in the store and settled by `_resolve()` when the
  * dialog closes. This lets ANY module (chat…) create a task through
  * `ModuleServiceRegistry.call('tasks', 'createTask')` without ever importing
- * tasks' code — when tasks is not installed, the service is simply absent.
+ * tasks' code - when tasks is not installed, the service is simply absent.
  */
 import { create } from 'zustand'
 

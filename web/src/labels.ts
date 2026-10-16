@@ -5,7 +5,7 @@
  *
  * A task already carries its BOARD's labels: a short, shared vocabulary that
  * belongs to the board and means something to the people working on it. These
- * are the other kind — the instance's own labels, the ones that also go on a
+ * are the other kind - the instance's own labels, the ones that also go on a
  * file, a note or an event, owned by the person and browsable across modules
  * from one place. Neither replaces the other, so both have their own line and
  * their own name in the form.

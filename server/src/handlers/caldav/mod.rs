@@ -255,7 +255,7 @@ async fn task_resource(
 }
 
 /// The `USING`-join delete is PostgreSQL-only, so the task is resolved first and
-/// then deleted by id — which also lets the deletion take a change_seq and write
+/// then deleted by id - which also lets the deletion take a change_seq and write
 /// its tombstone (what the old AFTER DELETE trigger did).
 async fn delete_task(state: &AppState, token: &str, uid: &str) -> Response {
     let found = state
@@ -338,7 +338,7 @@ async fn put_task(
         return StatusCode::BAD_REQUEST.into_response();
     }
 
-    // If-None-Match: * — create only (checked against THIS board).
+    // If-None-Match: * - create only (checked against THIS board).
     let if_none_match_star = headers
         .get(axum::http::header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())

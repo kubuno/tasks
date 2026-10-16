@@ -55,7 +55,7 @@ export default function CommentEditor({ value, onChange, onSubmit, placeholder, 
 
   const insertImage = async () => {
     // The picker returns a File only when the user uploads one; markdown needs
-    // a URL, so a file has to be pushed somewhere addressable first — not
+    // a URL, so a file has to be pushed somewhere addressable first - not
     // supported here yet, hence URL-only sources.
     const picked = await openImagePicker({ title: t('insert_image'), exclude: ['upload', 'webcam'] })
     if (picked?.kind === 'url') insertAtCursor(`![](${picked.url})`)

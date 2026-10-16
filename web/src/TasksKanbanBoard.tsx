@@ -110,7 +110,7 @@ export default function TasksKanbanBoard({ boardId }: Props) {
   }
 
   // Delete = the card menu's "Supprimer", run on the selected task (the one the
-  // detail window is showing) — same confirmation, same request.
+  // detail window is showing) - same confirmation, same request.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete') return

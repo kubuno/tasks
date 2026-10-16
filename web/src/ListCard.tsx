@@ -270,7 +270,7 @@ export default function ListCard({
       className={`group/card flex max-h-full w-[400px] flex-shrink-0 flex-col self-start overflow-hidden
                   rounded-xl border bg-surface-0 ${dropTarget ? 'border-primary' : 'border-border'}`}
     >
-      {/* Grab bar — reorders the column. Only shown once the pointer is over the card. */}
+      {/* Grab bar - reorders the column. Only shown once the pointer is over the card. */}
       <div
         draggable
         onDragStart={onColumnDragStart}

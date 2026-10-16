@@ -134,7 +134,7 @@ impl TaskService {
         }
         if let Some(ref search) = q.search {
             // Portable case-insensitive contains: LOWER(col) LIKE a pattern that
-            // is already lower-cased in Rust — identical on the three engines,
+            // is already lower-cased in Rust - identical on the three engines,
             // and the placeholder stays at the tail so `push_bind` fits it. The
             // pattern is bound twice (title, description): the placeholder
             // rewriter forbids reusing a number, so each carries its own bind.
@@ -755,7 +755,7 @@ impl TaskService {
         let ignore = backend.insert_ignore_prefix();
         let nothing = backend.on_conflict_do_nothing(&["task_id", "label_id"]);
         for lid in label_ids {
-            // Ignore les labels hors du board. `$2`/`$3` both bind `lid` — the
+            // Ignore les labels hors du board. `$2`/`$3` both bind `lid` - the
             // rewriter forbids reusing a placeholder number, so it is bound twice.
             tx.execute(
                 &format!(

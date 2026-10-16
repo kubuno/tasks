@@ -30,7 +30,7 @@ export function AddTaskIcon({ size = 20 }: { size?: number }) {
       <circle cx="8" cy="8" r="6.6" stroke="currentColor" strokeWidth="1.6" />
       <path d="M5 8.2l2.2 2.2 4-4.8" stroke="currentColor" strokeWidth="1.6"
             strokeLinecap="round" strokeLinejoin="round" />
-      {/* A bold, detached plus badge — the whole point of this icon must read at a glance. */}
+      {/* A bold, detached plus badge - the whole point of this icon must read at a glance. */}
       <path d="M16 13.3v5.4M13.3 16h5.4" stroke="currentColor" strokeWidth="2.4"
             strokeLinecap="round" />
     </svg>
@@ -56,17 +56,17 @@ export function EmptyTasksArt({ className = '' }: { className?: string }) {
       <rect x="54" y="12" width="24" height="12" rx="4" fill="#a8c7fa" />
       {/* clipboard */}
       <rect x="34" y="18" width="64" height="62" rx="9" fill="#ffffff" stroke="#dadce0" strokeWidth="2" />
-      {/* row 1 — ticked */}
+      {/* row 1 - ticked */}
       <circle cx="50" cy="38" r="6" fill="#1e8e3e" />
       <path d="M47.2 38.2l1.9 1.9 3.7-4.1" stroke="#fff" strokeWidth="1.8"
             strokeLinecap="round" strokeLinejoin="round" fill="none" />
       <rect x="60" y="35" width="28" height="6" rx="3" fill="#cbe6d3" />
-      {/* row 2 — ticked */}
+      {/* row 2 - ticked */}
       <circle cx="50" cy="55" r="6" fill="#1e8e3e" />
       <path d="M47.2 55.2l1.9 1.9 3.7-4.1" stroke="#fff" strokeWidth="1.8"
             strokeLinecap="round" strokeLinejoin="round" fill="none" />
       <rect x="60" y="52" width="22" height="6" rx="3" fill="#e8eaed" />
-      {/* row 3 — still open */}
+      {/* row 3 - still open */}
       <circle cx="50" cy="72" r="6" fill="none" stroke="#dadce0" strokeWidth="2" />
       <rect x="60" y="69" width="18" height="6" rx="3" fill="#e8eaed" />
     </svg>

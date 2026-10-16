@@ -3,7 +3,7 @@ import { i18n, prompt, navigate } from '@kubuno/sdk'
  * Items of the shell's "New" button for the tasks module.
  *
  * Contributed as DATA (`MenuItem[]` from @ui) to the `shell.new-actions`
- * extension point — the shell renders them with the project's MenuDropdown.
+ * extension point - the shell renders them with the project's MenuDropdown.
  * `newActionItems` is evaluated when the menu OPENS, outside any React
  * component: no hooks here (store via `getState()`, i18n via `i18n.t`,
  * react-query through the captured host client in `queryClient.ts`).

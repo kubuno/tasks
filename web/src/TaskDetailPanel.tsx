@@ -135,7 +135,7 @@ export default function TaskDetailPanel() {
   })
 
   // ⚠️ Above the early return below: these are hooks, and a hook that only runs
-  // on some renders is React error #310 — the panel went blank the first time
+  // on some renders is React error #310 - the panel went blank the first time
   // this block sat under it.
   // The instance's labels, alongside the board's. Written straight away rather
   // than on a save button: this panel edits in place, like every other field
@@ -173,7 +173,7 @@ export default function TaskDetailPanel() {
           <div className="flex-1 flex items-center justify-center"><Spinner /></div>
         ) : (
           <div className="flex flex-col flex-1 min-h-0">
-            {/* Titre — toujours visible */}
+            {/* Titre - toujours visible */}
             <div className="px-4 pt-3">
               <input
                 value={title}
@@ -306,7 +306,7 @@ export default function TaskDetailPanel() {
               </div>
             </div>
 
-            {/* Labels — the BOARD's, a vocabulary shared by whoever works on it. */}
+            {/* Labels - the BOARD's, a vocabulary shared by whoever works on it. */}
             <div>
               <label className="block text-xs text-text-tertiary mb-1 flex items-center gap-1"><Tag size={12} />{t('board_labels', { defaultValue: 'Étiquettes du tableau' })}</label>
               <div className="flex flex-wrap gap-1.5">
@@ -329,7 +329,7 @@ export default function TaskDetailPanel() {
               </div>
             </div>
 
-            {/* Labels — the INSTANCE's, the ones that also go on a file, a note
+            {/* Labels - the INSTANCE's, the ones that also go on a file, a note
                 or an event. A different vocabulary from the board's, so it gets
                 its own line rather than being mixed into it. */}
             <div>

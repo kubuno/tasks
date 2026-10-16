@@ -167,7 +167,7 @@ export default function TasksListView({ boardId }: Props) {
   const taskMenuItems: MenuItem[] = taskMenu ? buildTaskMenu(taskMenu.task, boards, t, taskActions) : []
 
   // Delete = the row menu's "Supprimer", run on the selected task (the one the
-  // detail window is showing) — same confirmation, same request.
+  // detail window is showing) - same confirmation, same request.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Delete') return

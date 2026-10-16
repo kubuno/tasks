@@ -4,7 +4,7 @@ import { api } from '@kubuno/sdk'
 // The core's `/modules/tasks/config` deliberately hides instance-scoped settings
 // from accounts without the settings privilege, so it cannot answer "may I share
 // this board?" for an ordinary user. The module answers that itself, on
-// `/tasks/instance-policy`, with the decisions its own screens act on — the same
+// `/tasks/instance-policy`, with the decisions its own screens act on - the same
 // ones the server enforces, so the interface never offers an action the backend
 // will refuse.
 import { useMemo } from 'react'

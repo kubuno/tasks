@@ -1,7 +1,7 @@
 //! Retention of completed tasks.
 //!
 //! An administration that sets a retention is asking the instance to stop
-//! keeping a done-list nobody reads — a data-minimisation decision, so it is the
+//! keeping a done-list nobody reads - a data-minimisation decision, so it is the
 //! server that applies it and not whichever client happens to be open. The knob
 //! is `completed_task_retention_days`; left at `0` (the default) this worker does
 //! nothing at all, and says nothing either.
@@ -9,7 +9,7 @@
 //! What is deliberately NOT purged: a task that is done but whose subtasks are
 //! not. Deleting it would cascade over work still in progress, and "completed" is
 //! a claim about the parent alone. A fully finished tree does go, subtasks
-//! included — and, because the FK cascade fires no application code, this worker
+//! included - and, because the FK cascade fires no application code, this worker
 //! writes a task tombstone for every row the cascade will remove (exactly what
 //! the old AFTER DELETE trigger did), so the delta feed learns each deletion.
 

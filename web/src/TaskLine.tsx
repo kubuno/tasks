@@ -7,7 +7,7 @@ import { isOverdue } from './helpers'
 
 interface Props {
   task: Task
-  /** Nesting level — a subtask is drawn indented under its parent. */
+  /** Nesting level - a subtask is drawn indented under its parent. */
   depth?: number
   /** Name of the list this task belongs to, shown as a chip in cross-list views. */
   listName?: string
@@ -41,7 +41,7 @@ function Chip({ tone = 'neutral', children }: { tone?: 'neutral' | 'accent' | 'd
   )
 }
 
-/** The due date as a short human phrase — "today" reads better than a date. */
+/** The due date as a short human phrase - "today" reads better than a date. */
 function dueLabel(task: Task, t: (k: string) => string): string {
   if (!task.due_at) return ''
   const d = toDate(task.due_at)

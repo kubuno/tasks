@@ -40,7 +40,7 @@ section  = "main"
 # ── Admin panel pages ─────────────────────────────────────────────────────────
 # Each becomes an entry of the admin menu (Modules → Tasks), at its own address.
 # Only instance-scoped settings (global | overridable) reach the admin panel, and
-# every one of them is applied by the module's server — see src/config/instance.rs
+# every one of them is applied by the module's server - see src/config/instance.rs
 # and the guards that read it.
 
 [[setting_groups]]

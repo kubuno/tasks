@@ -2,7 +2,7 @@
 //! the console.
 //!
 //! Declared by `module.toml`'s `[[settings]]`, stored in `core.settings`, and read
-//! back here through `/internal/modules/tasks/settings` — a module owns its own
+//! back here through `/internal/modules/tasks/settings` - a module owns its own
 //! schema and cannot read the core's tables, and a background worker has no user
 //! token for the public config route. The module is named in the URL so the read
 //! works whether the instance shares one master secret or a derived one per
@@ -22,7 +22,7 @@ pub struct InstanceConfig {
     /// Ceiling, in megabytes, on the declared size of a task attachment. `0` =
     /// no ceiling. Enforced when a new attachment row is recorded: the real file
     /// lives in drive/core (referenced by `file_id`), so this caps the size the
-    /// task attachment declares at record time — the honest, sufficient point of
+    /// task attachment declares at record time - the honest, sufficient point of
     /// application on the tasks side.
     pub attachment_max_mb: i64,
     /// Whether a board may be shared with other accounts at all.

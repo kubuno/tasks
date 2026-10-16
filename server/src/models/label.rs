@@ -13,7 +13,7 @@ pub struct Label {
 
 #[derive(Debug, Deserialize, validator::Validate)]
 pub struct CreateLabelDto {
-    /// Optional client-minted id (local-first sync replay) — honoured verbatim.
+    /// Optional client-minted id (local-first sync replay) - honoured verbatim.
     #[serde(default)]
     pub id: Option<Uuid>,
     #[validate(length(min = 1, max = 100))]

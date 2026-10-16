@@ -51,7 +51,7 @@ export default function CommentThread({ comments, authors, currentUserId, onAdd,
               className={`text-sm rounded-lg p-2 transition-colors ${beingEdited ? 'bg-primary-light ring-1 ring-primary/40' : 'bg-surface-1'}`}>
               <div className="flex items-center gap-1.5 mb-1">
                 <UserAvatar user={author} size={18} />
-                <span className="text-xs font-medium text-text-secondary">{author?.display_name ?? '—'}</span>
+                <span className="text-xs font-medium text-text-secondary">{author?.display_name ?? '-'}</span>
                 <span className="text-[10px] text-text-tertiary ml-auto">{new Date(c.created_at).toLocaleString()}</span>
                 {canEdit && (
                   <div className="flex items-center gap-0.5">
